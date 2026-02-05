@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OPTCG Scanner - Collection Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #003049;
+            color: #fdf0d5;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #003049 0%, #001f2e 100%);
+            padding: 32px 24px 24px;
+        }
+
+        .hero {
+            margin-bottom: 24px;
+        }
+
+        .title {
+            font-size: 36px;
+            font-weight: bold;
+            color: #fdf0d5;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #669bbc;
+            font-weight: 600;
+        }
+
+        .stats-container {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background-color: #001f2e;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(102, 155, 188, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card-primary {
+            background-color: #780000;
+            border-color: #c1121f;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fdf0d5;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #669bbc;
+            font-weight: 600;
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-button {
+            flex: 1;
+            background-color: #669bbc;
+            padding: 8px 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #003049;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .action-button:hover {
+            background-color: #a3c4d8;
+            transform: translateY(-2px);
+        }
+
+        .filter-bar {
+            background-color: #001f2e;
+            padding: 16px 0;
+        }
+
+        .section {
+            margin-bottom: 8px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #669bbc;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 24px;
+            margin-bottom: 8px;
+        }
+
+        .options-row {
+            display: flex;
+            gap: 8px;
+            padding: 0 24px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .options-row::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .options-row::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+
+        .options-row::-webkit-scrollbar-thumb {
+            background: #669bbc;
+            border-radius: 3px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            background-color: #003049;
+            border-radius: 999px;
+            border: 1px solid rgba(102, 155, 188, 0.3);
+            font-size: 14px;
+            font-weight: 600;
+            color: #fdf0d5;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .chip:hover {
+            border-color: #669bbc;
+            transform: translateY(-2px);
+        }
+
+        .chip-active {
+            background-color: #780000;
+            border-color: #c1121f;
+        }
+
+        .chip-set {
+            background-color: #003049;
+            border-color: rgba(253, 240, 213, 0.2);
+        }
+
+        .chip-active-set {
+            background-color: #669bbc;
+            border-color: #669bbc;
+            color: #003049;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background-color: #001f2e;
+        }
+
+        .results-text {
+            color: #fdf0d5;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .clear-all-text {
+            color: #c1121f;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clear-all-text:hover {
+            color: #780000;
+        }
+
+        .card-list {
+            padding: 8px 0 100px;
+        }
+
+        .card-item {
+            display: flex;
+            background-color: #001f2e;
+            margin: 4px 24px;
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid #c1121f;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .card-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-item:active {
+            opacity: 0.7;
+            transform: scale(0.98);
+        }
+
+        .left-section {
+            flex: 1;
+        }
+
+        .code-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .code {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fdf0d5;
+        }
+
+        .alt-badge {
+            background-color: #780000;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #fdf0d5;
+        }
+
+        .set-name {
+            font-size: 14px;
+            color: #669bbc;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .meta-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: rgba(253, 240, 213, 0.5);
+        }
+
+        .meta-separator {
+            color: rgba(253, 240, 213, 0.25);
+        }
+
+        .right-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .time-container {
+            background-color: rgba(102, 155, 188, 0.2);
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        .time-text {
+            font-size: 12px;
+            color: #669bbc;
+            font-weight: bold;
+        }
+
+        .hint {
+            font-size: 10px;
+            color: rgba(253, 240, 213, 0.3);
+            font-style: italic;
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 64px;
+            height: 64px;
+            border-radius: 32px;
+            background-color: #c1121f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .fab:hover {
+            background-color: #780000;
+            transform: scale(1.1);
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-100%); }
+        }
+
+        @media (max-width: 600px) {
+            .title {
+                font-size: 28px;
+            }
+            
+            .stats-container {
+                gap: 8px;
+            }
+            
+            .stat-card {
+                padding: 12px 8px;
+            }
+            
+            .stat-value {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="hero">
+            <div class="title">Mi Colección</div>
+            <div class="subtitle">One Piece TCG</div>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card stat-card-primary">
+                <div class="stat-value">24</div>
+                <div class="stat-label">Cartas Únicas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">37</div>
+                <div class="stat-label">Total Escaneos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Alt Arts</div>
+            </div>
+        </div>
+
+        <div class="actions-row">
+            <button class="action-button">🔄 Actualizar</button>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <div class="section">
+            <div class="section-title">Ordenar</div>
+            <div class="options-row">
+                <div class="chip chip-active">
+                    <span>🕐</span>
+                    <span>Recientes</span>
+                </div>
+                <div class="chip">
+                    <span>📚</span>
+                    <span>Por Set</span>
+                </div>
+                <div class="chip">
+                    <span>🔢</span>
+                    <span>Número</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Filtrar por Set ▼</div>
+            <div class="options-row">
+                <div class="chip chip-set chip-active-set">OP01</div>
+                <div class="chip chip-set">OP02</div>
+                <div class="chip chip-set">OP03</div>
+                <div class="chip chip-set">OP04</div>
+                <div class="chip chip-set">OP05</div>
+                <div class="chip chip-set">OP06</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="results-header">
+        <div class="results-text">8 cartas en OP01</div>
+        <div class="clear-all-text">Limpiar Todo</div>
+    </div>
+
+    <div class="card-list">
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-001</div>
+                    <div class="alt-badge">⭐ ALT</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#001</span>
+                    <span class="meta-separator">•</span>
+                    <span>27 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">14:23</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-025</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#025</span>
+                    <span class="meta-separator">•</span>
+                    <span>27 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">14:18</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-047</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#047</span>
+                    <span class="meta-separator">•</span>
+                    <span>27 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">14:12</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-060</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#060</span>
+                    <span class="meta-separator">•</span>
+                    <span>26 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">19:45</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-078</div>
+                    <div class="alt-badge">⭐ ALT</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#078</span>
+                    <span class="meta-separator">•</span>
+                    <span>26 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">18:32</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-091</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#091</span>
+                    <span class="meta-separator">•</span>
+                    <span>25 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">16:20</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-102</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#102</span>
+                    <span class="meta-separator">•</span>
+                    <span>25 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">15:55</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="left-section">
+                <div class="code-container">
+                    <div class="code">OP01-121</div>
+                    <div class="alt-badge">⭐ ALT</div>
+                </div>
+                <div class="set-name">Romance Dawn</div>
+                <div class="meta-row">
+                    <span>#121</span>
+                    <span class="meta-separator">•</span>
+                    <span>24 ene 2026</span>
+                </div>
+            </div>
+            <div class="right-section">
+                <div class="time-container">
+                    <div class="time-text">20:10</div>
+                </div>
+                <div class="hint">Mantén presionado</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fab">📸</div>
+
+    <script>
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                this.parentElement.querySelectorAll('.chip').forEach(c => {
+                    c.classList.remove('chip-active', 'chip-active-set');
+                });
+                if (this.classList.contains('chip-set')) {
+                    this.classList.add('chip-active-set');
+                } else {
+                    this.classList.add('chip-active');
+                }
+            });
+        });
+
+        document.querySelectorAll('.card-item').forEach(card => {
+            card.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (confirm('¿Eliminar esta carta?')) {
+                    this.style.animation = 'fadeOut 0.3s forwards';
+                    setTimeout(() => this.remove(), 300);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

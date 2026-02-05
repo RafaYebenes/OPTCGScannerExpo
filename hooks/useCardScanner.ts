@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
+import { supabaseService } from '../services/supabaseService'; // <--- USAMOS EL NUEVO SERVICIO
+import { DetectionState } from '../types/card.types';
 import { cardCodeParser } from '../utils/cardCodeParser';
-import { storageService } from '../services/storageService';
 import { SCANNER_CONFIG } from '../utils/constants';
-import { ScannedCard, DetectionState } from '../types/card.types';
-import { v4 as uuidv4 } from 'uuid';
 
 export const useCardScanner = () => {
   const [detectionState, setDetectionState] = useState<DetectionState>({
@@ -21,83 +20,104 @@ export const useCardScanner = () => {
   const processDetectedText = useCallback((text: string) => {
     const now = Date.now();
 
+    // 1. Control de FPS (Throttle)
     if (now - lastProcessTimeRef.current < SCANNER_CONFIG.THROTTLE_MS) {
       return;
     }
     lastProcessTimeRef.current = now;
 
+    // 2. Intentar parsear el código
     const cardCode = cardCodeParser.parse(text);
-    
+
+    // Si no es un código válido, limpiamos y salimos
     if (!cardCode || !cardCodeParser.validate(cardCode)) {
       consecutiveDetectionsRef.current.clear();
-      setDetectionState(prev => ({
-        ...prev,
-        isDetecting: false,
-        currentCode: null,
-        confirmationCount: 0,
-      }));
+
+      // Solo actualizamos estado si estábamos detectando algo antes (para evitar re-renders)
+      if (detectionState.isDetecting) {
+        setDetectionState(prev => ({
+          ...prev,
+          isDetecting: false,
+          currentCode: null,
+          confirmationCount: 0,
+        }));
+      }
       return;
     }
 
     const codeString = cardCode.fullCode;
 
+    // 3. Cooldown: Si ya guardamos esta carta hace poco, la ignoramos
     const lastSavedTime = lastSavedTimeRef.current.get(codeString) || 0;
     if (now - lastSavedTime < SCANNER_CONFIG.COOLDOWN_MS) {
       return;
     }
 
+    // 4. Lógica de Confirmación (requiere N lecturas seguidas)
     const currentCount = (consecutiveDetectionsRef.current.get(codeString) || 0) + 1;
     consecutiveDetectionsRef.current.set(codeString, currentCount);
 
-    consecutiveDetectionsRef.current.forEach((count, key) => {
-      if (key !== codeString) {
-        consecutiveDetectionsRef.current.delete(key);
-      }
+    // Limpieza: Si detectamos una carta nueva, borramos el contador de las otras
+    consecutiveDetectionsRef.current.forEach((_, key) => {
+      if (key !== codeString) consecutiveDetectionsRef.current.delete(key);
     });
 
-    setDetectionState({
+    // Actualizamos UI
+    setDetectionState(prev => ({
+      ...prev,
       isDetecting: true,
       currentCode: codeString,
       confirmationCount: currentCount,
-      lastSavedCode: detectionState.lastSavedCode,
-    });
-
+      // Mantenemos el lastSavedCode para que la animación de éxito no desaparezca de golpe
+    }));
+    console.log(`🔍 Detectado: ${codeString} | Conteo: ${currentCount}`);
+    // 5. ¡CONFIRMADO! Guardamos en la Nube
     if (currentCount >= SCANNER_CONFIG.CONFIRMATION_THRESHOLD) {
-      saveDetectedCard(cardCode);
+      console.log(`🔍 Detectado2: ${codeString} | Conteo: ${currentCount}`);
+
+      // Detección básica de Alt Art (por si quieres implementarla luego con estrellas)
+      const isAltArt = false;
+
+      saveDetectedCardToCloud(codeString, isAltArt);
+
+      // Reseteamos contadores para esta carta
       consecutiveDetectionsRef.current.clear();
       lastSavedTimeRef.current.set(codeString, now);
     }
-  }, [detectionState.lastSavedCode]);
+  }, [detectionState.isDetecting, detectionState.lastSavedCode]); // Optimizamos dependencias
 
-  const saveDetectedCard = useCallback(async (cardCode: any) => {
-    const card: ScannedCard = {
-      id: uuidv4(),
-      code: cardCode,
-      hasAlternateArt: false,
-      scannedAt: Date.now(),
-      confidence: 100,
-    };
+  const saveDetectedCardToCloud = useCallback(async (codeString: string, isAltArt: boolean) => {
+    // 1. Feedback Físico Inmediato (Usuario feliz)
+    Vibration.vibrate([0, 50, 50, 100]);
+    console.log(`🎉 Carta detectada: ${codeString} | Alt Art: ${isAltArt}`);
+    // 2. Guardado Asíncrono en Supabase
+    // No esperamos con 'await' bloqueante para que la UI no se congele,
+    // pero gestionamos la promesa.
+    supabaseService.addCardToCollection(codeString, isAltArt).then((success) => {
+      if (success) {
+        console.log(`✅ Carta ${codeString} guardada en la nube`);
+      } else {
+        console.log(`❌ Error o duplicado al guardar ${codeString}`);
+      }
+    });
 
-    const saved = await storageService.saveCard(card);
+    // 3. Feedback Visual Inmediato
+    setDetectionState(prev => ({
+      ...prev,
+      lastSavedCode: codeString,
+      confirmationCount: 0,
+    }));
 
-    if (saved) {
-      Vibration.vibrate([0, 100, 50, 100]);
-
+    // 4. Ocultar mensaje de éxito tras unos segundos
+    setTimeout(() => {
       setDetectionState(prev => ({
         ...prev,
-        lastSavedCode: cardCode.fullCode,
-        confirmationCount: 0,
+        isDetecting: false,
+        currentCode: null,
+        lastSavedCode: null,
       }));
+    }, SCANNER_CONFIG.SUCCESS_DISPLAY_MS);
 
-      setTimeout(() => {
-        setDetectionState(prev => ({
-          ...prev,
-          isDetecting: false,
-          currentCode: null,
-          lastSavedCode: null,
-        }));
-      }, SCANNER_CONFIG.SUCCESS_DISPLAY_MS);
-    }
   }, []);
 
   const reset = useCallback(() => {

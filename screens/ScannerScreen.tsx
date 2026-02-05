@@ -1,6 +1,14 @@
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import React, { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import {
   Camera,
   useCameraDevice,
@@ -12,7 +20,14 @@ import { ScanOverlay } from '../components/ScanOverlay';
 import { useCardScanner } from '../hooks/useCardScanner';
 import { useCardStorage } from '../hooks/useCardStorage';
 import { ScannerScreenProps } from '../types/navigation.types';
-import { COLORS, SCANNER_CONFIG } from '../utils/constants';
+import { SCANNER_CONFIG } from '../utils/constants';
+
+// --- TEMA VISUAL ---
+const THEME = {
+  bgDarkGlass: 'rgba(12, 111, 164, 0.85)', // Cristal Oscuro
+  accentBlue: "#669bbc",                // Azul Brillante
+  textWhite: "#ffffff",
+};
 
 export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const device = useCameraDevice('back');
@@ -25,69 +40,50 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProcessingRef = useRef(false);
 
+  // Efecto de inicialización de cámara y OCR
   useEffect(() => {
     if (!camera.current || !hasPermission) return;
 
     scanIntervalRef.current = setInterval(async () => {
       if (isProcessingRef.current) return;
-
       try {
         isProcessingRef.current = true;
-
-        const photo = await camera.current?.takePhoto({
-          flash: 'off',
-        });
-
+        const photo = await camera.current?.takePhoto({ flash: 'off' });
+        
         if (photo) {
-          const imagePath = photo.path.startsWith('file://')
-            ? photo.path
+          // Corrección crítica para rutas en Android
+          const imagePath = photo.path.startsWith('file://') 
+            ? photo.path 
             : `file://${photo.path}`;
+            
           const result = await TextRecognition.recognize(imagePath);
           processDetectedText(result.text);
         }
       } catch (error) {
-        console.log('Error en auto-scan:', error);
+        // Silenciamos errores de frame perdido para no saturar logs
       } finally {
         isProcessingRef.current = false;
       }
     }, SCANNER_CONFIG.THROTTLE_MS);
 
     return () => {
-      if (scanIntervalRef.current) {
-        clearInterval(scanIntervalRef.current);
-      }
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
     };
   }, [hasPermission, processDetectedText]);
 
+  // Refrescar lista cuando se guarda una carta nueva
   useEffect(() => {
-    if (detectionState.lastSavedCode) {
-      refresh();
-    }
+    if (detectionState.lastSavedCode) refresh();
   }, [detectionState.lastSavedCode, refresh]);
 
-  if (!hasPermission) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>
-          Necesitamos acceso a la cámara para escanear cartas
-        </Text>
-        <Pressable style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Conceder Permiso</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (!device) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Cargando cámara...</Text>
-      </View>
-    );
-  }
+  // Pantallas de carga / permiso
+  if (!hasPermission) return <PermissionRequest onRequest={requestPermission} />;
+  if (!device) return <LoadingView />;
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="black" />
+      
       <Camera
         ref={camera}
         style={StyleSheet.absoluteFill}
@@ -96,118 +92,133 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         photo={true}
       />
 
+      {/* 1. Capas Visuales (Overlay y Feedback) */}
       <ScanOverlay />
       <DetectionFeedback detectionState={detectionState} />
 
-      <RecentScans
-        cards={recentCards}
-        onCardPress={() => {
-          navigation.navigate('Collection');
-        }}
-      />
+      {/* 2. Controles Superiores (Glass Pills) */}
+      <SafeAreaView style={styles.topControlsContainer}>
+        <View style={styles.topBar}>
+          <Pressable
+            style={({ pressed }) => [styles.glassButton, pressed && styles.glassButtonPressed]}
+            onPress={() => navigation.navigate('Collection')}
+          >
+            <Text style={styles.glassButtonIcon}>📚</Text>
+            <Text style={styles.glassButtonText}>Colección</Text>
+          </Pressable>
 
-      <View style={styles.controls}>
-        <Pressable
-          style={styles.controlButton}
-          onPress={() => navigation.navigate('Collection')}
-        >
-          <Text style={styles.controlButtonText}>📚 Colección</Text>
-        </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.glassButton, pressed && styles.glassButtonPressed]}
+            onPress={reset}
+          >
+            <Text style={styles.glassButtonText}>Reiniciar</Text>
+            <Text style={styles.glassButtonIcon}>↺</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
 
-        <Pressable
-          style={styles.controlButton}
-          onPress={reset}
-        >
-          <Text style={styles.controlButtonText}>🔄 Reset</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.scanIndicator}>
-        <View style={styles.scanDot} />
-        <Text style={styles.scanText}>Escaneando...</Text>
+      {/* 3. Lista de Recientes (Fondo) */}
+      <View style={styles.bottomListContainer}>
+        <RecentScans
+          cards={recentCards}
+          onCardPress={() => navigation.navigate('Collection')}
+        />
       </View>
     </View>
   );
 };
 
+// Sub-componentes auxiliares
+const PermissionRequest = ({ onRequest }: { onRequest: () => void }) => (
+  <View style={styles.centerContainer}>
+    <Text style={styles.textWhite}>Cámara necesaria para escanear</Text>
+    <Pressable style={styles.actionButton} onPress={onRequest}>
+      <Text style={styles.textBold}>Conceder Permiso</Text>
+    </Pressable>
+  </View>
+);
+
+const LoadingView = () => (
+  <View style={styles.centerContainer}>
+    <Text style={styles.textWhite}>Iniciando sistema...</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#000',
   },
-  permissionContainer: {
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#001d3d',
   },
-  permissionText: {
-    color: '#fff',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  permissionButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-  },
-  permissionButtonText: {
+  textWhite: {
     color: '#fff',
     fontSize: 16,
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  textBold: {
+    color: '#fff',
     fontWeight: 'bold',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
+  actionButton: {
+    backgroundColor: THEME.accentBlue,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
   },
-  loadingText: {
-    color: '#fff',
-    fontSize: 18,
-  },
-  controls: {
+  
+  // --- BARRA SUPERIOR CRISTAL ---
+  topControlsContainer: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
+    top: 45,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  controlButton: {
-    backgroundColor: COLORS.overlay,
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingTop: Platform.OS === 'android' ? 40 : 10, // Ajuste para status bar
   },
-  controlButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  scanIndicator: {
-    position: 'absolute',
-    top: 100,
-    alignSelf: 'center',
+  glassButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.overlay,
-    paddingHorizontal: 15,
+    backgroundColor: THEME.bgDarkGlass,
     paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    gap: 8,
   },
-  scanDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.success,
-    marginRight: 8,
+  glassButtonPressed: {
+    backgroundColor: THEME.accentBlue,
+    borderColor: THEME.accentBlue,
   },
-  scanText: {
+  glassButtonText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  glassButtonIcon: {
+    color: '#fff',
+    fontSize: 14,
+  },
+
+  // --- CONTENEDOR INFERIOR ---
+  bottomListContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    // Ajuste para que no choque con el navigation bar del móvil
+    paddingBottom: Platform.OS === 'android' ? 40 : 30, 
   },
 });
