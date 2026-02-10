@@ -200,7 +200,7 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, paddingTop: StatusBar.currentHeight || 0, backgroundColor: THEME.deepOcean },
     scrollContent: { paddingBottom: 150 },
 
     navBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
         position: 'absolute', bottom: 0, left: 0, right: 0,
         backgroundColor: '#000F1A',
         borderTopWidth: 1, borderTopColor: THEME.glassBorder,
-        flexDirection: 'row', padding: 20, paddingBottom: 30,
+        flexDirection: 'row', padding: 10, paddingBottom: 43,
         justifyContent: 'space-between', alignItems: 'center'
     },
     priceColumn: { flex: 1, paddingRight: 20 },
