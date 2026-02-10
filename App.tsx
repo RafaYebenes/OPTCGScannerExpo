@@ -1,31 +1,51 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { ActivityIndicator, StatusBar, Text, View } from 'react-native';
+
+// Contextos
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { CollectionProvider } from './context/CollectionContext'; // <--- NUEVO
+import { CollectionProvider } from './context/CollectionContext';
+
+// Pantallas
+import { CardDetailScreen } from './screens/CardDetailScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { ScannerScreen } from './screens/ScannerScreen';
+
+// Tipos
 import { RootStackParamList } from './types/navigation.types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const Navigation = () => {
+const NavigationContent = () => {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // O un Splash Screen bonito
+  // 1. SI ESTÁ CARGANDO -> SPINNER
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
+        <ActivityIndicator size="large" color="#fdf0d5" />
+        <Text style={{ color: '#fdf0d5', marginTop: 20 }}>Iniciando...</Text>
+      </View>
+    );
+  }
 
+  // 2. SI YA TERMINÓ DE CARGAR -> NAVEGACIÓN
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          // STACK DE USUARIO AUTENTICADO
           <>
             <Stack.Screen name="Scanner" component={ScannerScreen} />
             <Stack.Screen name="Collection" component={CollectionScreen} />
+            <Stack.Screen 
+              name="CardDetail" 
+              component={CardDetailScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
           </>
         ) : (
-          // STACK DE LOGIN
           <Stack.Screen name="Login" component={LoginScreen} />
         )}
       </Stack.Navigator>
@@ -36,9 +56,9 @@ const Navigation = () => {
 export default function App() {
   return (
     <AuthProvider>
-      {/* El CollectionProvider debe ir DENTRO del AuthProvider para acceder al user */}
       <CollectionProvider>
-        <Navigation />
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <NavigationContent />
       </CollectionProvider>
     </AuthProvider>
   );

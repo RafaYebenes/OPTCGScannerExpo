@@ -5,16 +5,16 @@
         "buildType": "apk"
       },
       "env": {
-        "SUPABASE_URL": "@env SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY": "@env SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_URL": "@env EXPO_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY": "@env EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
         // Nota: En la app real usa la ANON KEY, no la SERVICE ROLE por seguridad, 
         // pero para probar usa la que tengas configurada en tu .env ahora mismo.
       }
     },
     "production": {
       "env": {
-        "SUPABASE_URL": "@env SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY": "@env SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_URL": "@env EXPO_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY": "@env EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY",
       }
     }
   }
