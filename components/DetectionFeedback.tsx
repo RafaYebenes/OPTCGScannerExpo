@@ -13,14 +13,14 @@ import Animated, {
 import { DetectionState } from '../types/card.types';
 import { SCANNER_CONFIG } from '../utils/constants';
 
-// --- PALETA MODERNA REFINADA ---
+// --- PALETA "ONE PIECE" ---
 const THEME = {
-  bgDarkGlass: 'rgba(0, 48, 73, 0.85)', // Azul oscuro muy transparente
-  accentBlue: "#669bbc",                 // Azul claro brillante
-  accentRed: "#c1121f",                  // Rojo vivo
-  textWhite: "#ffffff",
-  textDim: "rgba(255,255,255,0.7)",
-  successBg: "#003049",                  // Azul oscuro sólido para éxito
+  bgDarkGlass: 'rgba(0, 21, 37, 0.9)', // Deep Ocean casi sólido
+  navy: "#003049",
+  cream: "#fdf0d5",
+  lightBlue: "#669bbc",
+  gold: "#FFD700",
+  successBg: "#003049", // Navy sólido
 };
 
 interface Props {
@@ -31,7 +31,6 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
   const isSaved = !!detectionState.lastSavedCode;
   const isScanning = detectionState.isDetecting && !isSaved;
 
-  // Animación sutil de "pulso" para el estado de espera
   const idlePulse = useSharedValue(1);
   useEffect(() => {
     if (!isScanning && !isSaved) {
@@ -44,12 +43,11 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
 
   const idleAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: idlePulse.value }],
-    opacity: idlePulse.value, // Pulso también en opacidad
+    opacity: idlePulse.value,
   }));
 
-
   const renderContent = () => {
-    // 1. ESTADO: GUARDADO (SUCCESS) - Moderno, limpio, premium
+    // 1. ÉXITO (GUARDADO) - Estilo Tesoro Encontrado
     if (isSaved) {
       return (
         <Animated.View 
@@ -66,14 +64,14 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
               {detectionState.lastSavedCode}
             </Text>
             <Text style={styles.successSub}>
-              Guardada en colección
+              Añadida al tesoro
             </Text>
           </View>
         </Animated.View>
       );
     }
 
-    // 2. ESTADO: ESCANEANDO (SCANNING) - Tecnológico, dinámico
+    // 2. ESCANEANDO - Estilo Radar Náutico
     if (isScanning) {
       const progress = detectionState.confirmationCount / SCANNER_CONFIG.CONFIRMATION_THRESHOLD;
       const percentage = Math.min(Math.round(progress * 100), 100);
@@ -86,28 +84,21 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
           style={[styles.pillBase, styles.pillScanning]}
         >
           <View style={styles.scanningRow}>
-            {/* Icono de radar animado */}
             <View style={styles.radarIcon}>
                <View style={styles.radarDot} />
             </View>
-            
             <View style={styles.scanningInfo}>
               <Text style={styles.codeHighlight}>
                 {detectionState.currentCode}
               </Text>
               <Text style={styles.scanningText}>
-                Analizando... {percentage}%
+                Identificando... {percentage}%
               </Text>
             </View>
           </View>
-          
-          {/* Barra de progreso ultra-fina en la base */}
           <View style={styles.progressBarBg}>
             <Animated.View 
-              style={[
-                styles.progressBarFill,
-                { width: `${progress * 100}%` }
-              ]} 
+              style={[styles.progressBarFill, { width: `${progress * 100}%` }]} 
               layout={Layout.springify()}
             />
           </View>
@@ -115,7 +106,7 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
       );
     }
 
-    // 3. ESTADO: PENDIENTE (IDLE) - Minimalista, no intrusivo
+    // 3. IDLE - Minimalista
     return (
       <Animated.View 
         key="idle"
@@ -123,12 +114,10 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
         exiting={FadeOutUp.duration(200)}
         style={[styles.pillBase, styles.pillIdle]}
       >
-         {/* Opcional: Si usas Expo, descomenta el BlurView para un efecto cristal real */}
-         {/* <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} /> */}
         <Animated.View style={[styles.idleIconContainer, idleAnimatedStyle]}>
-           <Text style={styles.searchIcon}>🔍</Text>
+           <Text style={styles.searchIcon}>⚓</Text>
         </Animated.View>
-        <Text style={styles.textIdle}>Busca una carta</Text>
+        <Text style={styles.textIdle}>Busca una carta...</Text>
       </Animated.View>
     );
   };
@@ -140,148 +129,90 @@ export const DetectionFeedback: React.FC<Props> = ({ detectionState }) => {
   );
 };
 
-const PILL_HEIGHT = 54; // Altura estándar para las píldoras
-const BORDER_RADIUS = PILL_HEIGHT / 2;
+const PILL_HEIGHT = 50;
+const BORDER_RADIUS = 12; // Menos redondeado, más estilo "placa"
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    // Ajustamos la posición para que flote elegantemente sobre la UI inferior
-    bottom: 130, 
+    bottom: 150, // Posición ajustada
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 20,
   },
-  // Base común para todas las "píldoras"
   pillBase: {
     flexDirection: 'row',
     alignItems: 'center',
     height: PILL_HEIGHT,
     borderRadius: BORDER_RADIUS,
-    overflow: 'hidden', // Para que la barra de progreso no se salga
-    // Sombras suaves y modernas
+    overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(253, 240, 213, 0.15)', // Borde crema muy sutil
   },
 
-  // --- ESTILOS: IDLE (Pendiente) ---
+  // IDLE
   pillIdle: {
     backgroundColor: THEME.bgDarkGlass,
     paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)', // Borde sutil
-    minWidth: 160,
-    top: -25, // Ajuste para que no choque con el navigation bar del móvil
+    minWidth: 150,
     justifyContent: 'center',
   },
-  idleIconContainer: {
-    marginRight: 8,
-  },
-  searchIcon: {
-    fontSize: 16,
-    color: THEME.accentBlue,
-  },
-  textIdle: {
-    color: THEME.textDim,
-    fontSize: 15,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
+  idleIconContainer: { marginRight: 8 },
+  searchIcon: { fontSize: 14, color: THEME.cream },
+  textIdle: { color: THEME.cream, fontSize: 13, fontWeight: '600', letterSpacing: 0.5 },
 
-  // --- ESTILOS: SCANNING (Escaneando) ---
+  // SCANNING
   pillScanning: {
     backgroundColor: THEME.bgDarkGlass,
-    minWidth: 220,
-    flexDirection: 'column', // Cambiamos a columna para poner la barra abajo
+    minWidth: 200,
+    flexDirection: 'column',
     justifyContent: 'center',
-    paddingHorizontal: 0, // Quitamos padding horizontal para que la barra llegue al borde
-    borderWidth: 1.5,
-    borderColor: THEME.accentBlue, // Borde azul brillante activo
+    paddingHorizontal: 0,
+    borderColor: THEME.lightBlue,
   },
   scanningRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     flex: 1,
   },
   radarIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(102, 155, 188, 0.2)', // Azul claro transparente
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    width: 20, height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(102, 155, 188, 0.2)',
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 10,
   },
-  radarDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: THEME.accentBlue,
-  },
-  scanningInfo: {
-    justifyContent: 'center',
-  },
-  codeHighlight: {
-    color: THEME.textWhite,
-    fontWeight: '800',
-    fontSize: 17,
-    letterSpacing: 1,
-  },
-  scanningText: {
-    color: THEME.accentBlue,
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
-  // Barra de progreso moderna (fina en la base)
-  progressBarBg: {
-    width: '100%',
-    height: 3, // Muy fina
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: THEME.accentBlue, // Barra azul brillante
-  },
+  radarDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: THEME.lightBlue },
+  scanningInfo: { justifyContent: 'center' },
+  codeHighlight: { color: THEME.cream, fontWeight: '800', fontSize: 14, letterSpacing: 1 },
+  scanningText: { color: THEME.lightBlue, fontSize: 10, fontWeight: '600' },
+  progressBarBg: { width: '100%', height: 2, backgroundColor: 'rgba(0,0,0,0.5)' },
+  progressBarFill: { height: '100%', backgroundColor: THEME.lightBlue },
 
-  // --- ESTILOS: SUCCESS (Guardado) ---
+  // SUCCESS
   pillSuccess: {
-    backgroundColor: THEME.successBg, // Azul oscuro sólido, premium
+    backgroundColor: THEME.successBg,
     paddingHorizontal: 10,
-    paddingRight: 24,
-    minWidth: 230,
-    borderWidth: 0, // Sin borde, solo contraste limpio
+    paddingRight: 20,
+    minWidth: 200,
+    borderColor: THEME.gold, // Borde dorado al éxito
   },
   successIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: THEME.accentBlue, // Círculo azul brillante
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    marginLeft: 6,
+    width: 32, height: 32,
+    borderRadius: 16,
+    backgroundColor: THEME.lightBlue,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 10,
+    marginLeft: 4,
   },
-  checkmarkIcon: {
-    color: THEME.textWhite,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  successTitle: {
-    color: THEME.textWhite,
-    fontSize: 18,
-    fontWeight: '900', // Extra bold
-    letterSpacing: 0.5,
-  },
-  successSub: {
-    color: THEME.accentBlue, // Subtítulo en azul claro
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  checkmarkIcon: { color: '#000', fontSize: 16, fontWeight: 'bold' },
+  successTitle: { color: THEME.cream, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  successSub: { color: THEME.lightBlue, fontSize: 11, fontWeight: '600' },
 });

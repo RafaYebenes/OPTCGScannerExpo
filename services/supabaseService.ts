@@ -1,144 +1,169 @@
 // src/services/supabaseService.ts
 import { supabase } from '../lib/supabase';
 
-// ID Ficticio para desarrollo (Simulamos ser este usuario siempre)
-const SIMULATED_USER_ID = 'f98c0e75-a7d9-4fab-ac5c-67ddd2ce1a54';
-
 export const supabaseService = {
 
-    // 1. Asegurar que el usuario de prueba existe
-    async ensureTestUser() {
-        const { data: user } = await supabase.from('profiles').select('id').eq('id', SIMULATED_USER_ID).single();
+  // --- HELPER: Obtener ID del usuario logueado ---
+  async getCurrentUserId(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+  },
 
-        if (!user) {
-            console.log('Creando usuario de prueba...');
-            // Necesitamos crear primero el auth user "falso" o insertar directamente en profiles si RLS lo permite.
-            // TRUCO DEV: Insertamos directamente en profiles asumiendo que desactivaste RLS o permites insert público temporalmente
-            // Si esto falla, tendrás que crear un usuario real en Auth de Supabase y usar su ID.
-            const { error } = await supabase.from('profiles').insert({
-                id: SIMULATED_USER_ID,
-                username: 'Tester Dev',
-                subscription_tier: 'pro'
-            });
-            if (error) console.error('Error creando user test:', error);
-        }
-    },
+  // --- AÑADIR CARTA (Con Validación Estricta) ---
+  async addCardToCollection(codeString: string, isAltArt: boolean = false): Promise<boolean> {
+    console.log(`\n🔵 [INTENTO] Guardando: ${codeString} | Alt: ${isAltArt}`);
 
-    // 2. Guardar carta escaneada
-    async addCardToCollection(codeString: string, isAltArt: boolean = false): Promise<boolean> {
-        console.log(`\n🔵 [START] Intentando guardar carta: ${codeString}`);
+    try {
+      // 1. Obtener Usuario Real
+      const userId = await this.getCurrentUserId();
+      if (!userId) {
+        console.error('❌ Error: No hay usuario logueado.');
+        return false;
+      }
 
-        try {
-            // 1. Verificar usuario
-            console.log(`👤 [STEP 1] Usando ID Usuario: ${SIMULATED_USER_ID}`);
+      // 2. Determinar la variante a buscar
+      // Asumimos que tu BBDD tiene 'Normal' y 'Parallel' (o el nombre que usaras en tus scripts de carga)
+      const targetVariant = isAltArt ? 'Parallel' : 'Normal';
 
-            const variant = isAltArt ? 'Parallel' : 'Normal';
+      // 3. COMPROBACIÓN MAESTRA (La parte nueva)
+      // Buscamos si la carta existe en la base de datos oficial ('cards')
+      let query = supabase
+        .from('cards')
+        .select('id, name, rarity')
+        .eq('code', codeString);
 
-            // 2. Buscar carta
-            console.log(`🔍 [STEP 2] Buscando en catálogo master...`);
-            let { data: card, error: searchError } = await supabase
-                .from('cards')
-                .select('id')
-                .eq('code', codeString)
-                .eq('variant', variant)
-                .single();
+      // Si es Alt Art, intentamos buscar específicamente la versión paralela.
+      // Si es Normal, buscamos la normal.
+      // NOTA: Si en tu BBDD las Alt Arts se llaman "Alternate Art" o "Manga", ajusta el string aquí.
+      // Si quieres ser menos estricto con las Alt Arts, podrías quitar el filtro de variante
+      // si no encuentras la específica, pero por ahora seremos estrictos.
+      query = query.eq('variant', targetVariant);
 
-            if (searchError && searchError.code !== 'PGRST116') { // PGRST116 es "no results", ese no es error grave
-                console.error(`❌ [ERROR BUSQUEDA]`, JSON.stringify(searchError, null, 2));
-            }
+      const { data: cardsFound, error: searchError } = await query;
 
-            // 3. Crear si no existe
-            if (!card) {
-                console.log(`✨ [INFO] Carta no existe. Creando nueva entrada en catálogo...`);
-                const { data: newCard, error: createError } = await supabase
-                    .from('cards')
-                    .insert({
-                        code: codeString,
-                        name: `Card ${codeString}`,
-                        set_code: codeString.split('-')[0] || 'UNKNOWN',
-                        variant: variant,
-                        rarity: 'Unknown',
-                        type: 'Character'
-                    })
-                    .select('id')
-                    .single();
+      if (searchError) throw searchError;
 
-                if (createError) {
-                    console.error(`❌ [ERROR CREACIÓN] No se pudo crear la carta master:`, JSON.stringify(createError, null, 2));
-                    throw createError;
-                }
-                card = newCard;
-                console.log(`✅ [INFO] Carta master creada con ID: ${card.id}`);
-            }
+      // 4. VALIDACIÓN: ¿Existe la carta?
+      if (!cardsFound || cardsFound.length === 0) {
+        console.warn(`⚠️ Carta rechazada: ${codeString} (${targetVariant}) no existe en la base de datos maestra.`);
+        // Aquí podrías lanzar un Toast/Alert al usuario diciendo "Carta no reconocida"
+        return false;
+      }
 
-            // 4. Insertar en colección
-            console.log(`💾 [STEP 3] Insertando en user_collection...`);
-            const { data: insertData, error: insertError } = await supabase
-                .from('user_collection')
-                .insert({
-                    user_id: SIMULATED_USER_ID,
-                    card_id: card.id,
-                    quantity: 1,
-                    is_foil: isAltArt,
-                    scanned_at: new Date().toISOString(),
-                })
-                .select();
+      // Tomamos la primera coincidencia (por si hubiera duplicados, que no debería)
+      const validCard = cardsFound[0];
+      console.log(`✅ Carta validada: ${validCard.name} (ID: ${validCard.id})`);
 
-            if (insertError) {
-                console.error(`❌ [ERROR INSERT] Falló al guardar en colección:`, JSON.stringify(insertError, null, 2));
-                throw insertError; // Lanzamos para que lo pille el catch de abajo
-            }
+      // 5. INSERTAR EN COLECCIÓN DEL USUARIO
+      // Usamos 'upsert' por si ya la tiene, para no duplicar filas si no quieres,
+      // o 'insert' si quieres permitir tener 5 filas de la misma carta.
+      // Para coleccionismo, lo normal es tener 1 fila con quantity = X, o varias filas únicas.
+      // Aquí haremos INSERT simple como tenías, asumiendo que quieres registrar cada escaneo.
 
-            console.log(`✅ [SUCCESS] ¡Carta guardada correctamente!`, insertData);
-            return true;
+      /* OPCIONAL: Si quieres sumar cantidad en vez de crear fila nueva:
+         Hacía falta comprobar si ya existe en user_collection y hacer update.
+         Por ahora mantenemos tu lógica de INSERT nueva entrada.
+      */
 
-        } catch (error) {
-            // Este catch pilla errores de red (sin internet) o excepciones lanzadas arriba
-            console.error(`💀 [FATAL ERROR] Excepción no controlada:`, error);
+      const { error: insertError } = await supabase
+        .from('user_collection')
+        .insert({
+          user_id: userId,            // <--- ID REAL
+          card_id: validCard.id,
+          quantity: 1,
+          is_foil: isAltArt,
+          condition: 'Near Mint',
+          scanned_at: new Date().toISOString(),
+        });
 
-            // TRUCO: Muestra una alerta visual en el móvil por si no estás mirando la consola
-            // import { Alert } from 'react-native';
-            // Alert.alert("Error de Base de Datos", JSON.stringify(error));
+      if (insertError) throw insertError;
 
-            return false;
-        }
-    },
+      console.log(`🎉 Guardado exitoso en la colección de ${userId}`);
+      return true;
 
-    // 3. Obtener últimas escaneadas (para el UI)
-    async getRecentScans(limit = 10) {
-        const { data, error } = await supabase
-            .from('user_collection')
-            .select(`
-        id,
-        scanned_at,
-        card:cards (
-          code,
-          name,
-          set_code,
-          variant,
-          image_url
-        )
-      `)
-            .eq('user_id', SIMULATED_USER_ID)
-            .order('scanned_at', { ascending: false })
-            .limit(limit);
-
-        if (error) {
-            console.error(error);
-            return [];
-        }
-
-        // Mapeamos al formato que espera tu UI (ScannedCard)
-        return data.map((item: any) => ({
-            id: item.id,
-            code: {
-                fullCode: item.card.code,
-                set: item.card.set_code,
-                number: item.card.code.split('-')[1] || '000'
-            },
-            hasAlternateArt: item.card.variant !== 'Normal',
-            scannedAt: new Date(item.scanned_at).getTime(),
-            confidence: 100
-        }));
+    } catch (error) {
+      console.error('❌ Error crítico en addCardToCollection:', error);
+      return false;
     }
+  },
+
+  // --- OBTENER COLECCIÓN ---
+  async getUserCollection() {
+    try {
+      const userId = await this.getCurrentUserId();
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('user_collection')
+        .select(`
+          id,
+          quantity,
+          scanned_at,
+          is_foil,
+          condition,
+          card:cards (
+            id,
+            code,
+            name,
+            set_code,
+            rarity,
+            variant, 
+            image_url,
+            market_price_eur
+          )
+        `)
+        .eq('user_id', userId) // Solo mis cartas
+        .order('scanned_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error recuperando colección:', error);
+      return [];
+    }
+  },
+
+  // --- BORRAR CARTA ---
+  async deleteFromCollection(collectionId: string) {
+    try {
+      const userId = await this.getCurrentUserId();
+      if (!userId) return false;
+
+      const { error } = await supabase
+        .from('user_collection')
+        .delete()
+        .eq('id', collectionId)
+        .eq('user_id', userId); // Seguridad: solo borro si es mía
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error borrando:', error);
+      return false;
+    }
+  },
+
+  async updateCardQuantity(collectionId: string, newQuantity: number): Promise<boolean> {
+    try {
+      const userId = await this.getCurrentUserId();
+      if (!userId) return false;
+
+      // Si la cantidad es 0 o menos, borramos la carta
+      if (newQuantity <= 0) {
+        return this.deleteFromCollection(collectionId);
+      }
+
+      const { error } = await supabase
+        .from('user_collection')
+        .update({ quantity: newQuantity })
+        .eq('id', collectionId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error actualizando cantidad:', error);
+      return false;
+    }
+  }
 };

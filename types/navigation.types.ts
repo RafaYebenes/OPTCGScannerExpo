@@ -1,8 +1,9 @@
-import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { ScannedCard } from './card.types';
 
 export type RootStackParamList = {
+    Login: undefined;
     Scanner: undefined;
     Collection: undefined;
     CardDetail?: {

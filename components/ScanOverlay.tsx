@@ -2,39 +2,34 @@ import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 
-// --- PALETA ---
-const THEME = {
-  maskColor: 'rgba(0, 10, 24, 0.85)', // Fondo oscuro
-  accentBlue: "#669bbc",              // Azul Cyan
-  glassBg: 'rgba(0, 48, 73, 0.9)',    // Etiqueta
-  textWhite: "#ffffff",
-  textDim: "rgba(255,255,255,0.7)",
+// --- PALETA "ONE PIECE" ---
+const PALETTE = {
+  maskColor: 'rgba(0, 10, 24, 0.85)', // Oscuridad profunda
+  cream: "#fdf0d5",       // Color principal del marco (Borde carta)
+  lightBlue: "#669bbc",   // Detalles sutiles
+  glassBg: 'rgba(0, 21, 37, 0.8)', // Fondo etiqueta
 };
 
 const { width, height } = Dimensions.get('window');
 
-// Medidas Carta
-const CARD_ASPECT_RATIO = 63 / 90;
+// Medidas Carta (Standard TCG)
+const CARD_ASPECT_RATIO = 63 / 88;
 const OVERLAY_WIDTH = width * 0.85; 
 const OVERLAY_HEIGHT = OVERLAY_WIDTH / CARD_ASPECT_RATIO;
 
-// Coordenadas para centrar el hueco
 const HOLE_X = (width - OVERLAY_WIDTH) / 2;
 const HOLE_Y = (height - OVERLAY_HEIGHT) / 2;
-const CORNER_RADIUS = 18; // Radio de curvatura del hueco
+const CORNER_RADIUS = 14; 
 
 export const ScanOverlay = () => {
   return (
     <View style={StyleSheet.absoluteFill}>
       
-      {/* CAPA 1: MÁSCARA SVG (El fondo con el agujero perfecto) */}
+      {/* 1. MÁSCARA OSCURA */}
       <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <Mask id="mask">
-            {/* 1. Llenamos todo de BLANCO (Lo blanco se ve) */}
             <Rect x="0" y="0" width="100%" height="100%" fill="white" />
-            
-            {/* 2. Pintamos el hueco de NEGRO (Lo negro se hace transparente) */}
             <Rect 
               x={HOLE_X} 
               y={HOLE_Y} 
@@ -46,23 +41,19 @@ export const ScanOverlay = () => {
             />
           </Mask>
         </Defs>
-        
-        {/* 3. Aplicamos el color oscuro usando la máscara definida arriba */}
         <Rect 
           x="0" 
           y="0" 
           width="100%" 
           height="100%" 
-          fill={THEME.maskColor} 
+          fill={PALETTE.maskColor} 
           mask="url(#mask)" 
         />
       </Svg>
 
-      {/* CAPA 2: ELEMENTOS DECORATIVOS (Bordes, texto...) */}
-      {/* Usamos 'pointerEvents="none"' para que los toques pasen a la cámara si fuera necesario */}
+      {/* 2. ELEMENTOS DECORATIVOS (Marco Crema) */}
       <View style={styles.contentContainer} pointerEvents="none">
         
-        {/* Marco Central (Solo bordes decorativos) */}
         <View style={[styles.scanArea, { 
           top: HOLE_Y, 
           left: HOLE_X, 
@@ -70,18 +61,21 @@ export const ScanOverlay = () => {
           height: OVERLAY_HEIGHT 
         }]}>
           
-          {/* Esquinas Brillantes */}
+          {/* Esquinas Color Crema (Estilo Mapa/Carta) */}
+          <View style={[styles.corner, styles.topLeft]} />
+          <View style={[styles.corner, styles.topRight]} />
+          <View style={[styles.corner, styles.bottomLeft]} />
+          <View style={[styles.corner, styles.bottomRight]} />
           
-          
-          {/* Badge Flotante */}
+          {/* Badge Inferior */}
           <View style={styles.glassBadge}>
-            <Text style={styles.glassBadgeText}>CÓDIGO AQUÍ ↘</Text>
+            <Text style={styles.glassBadgeText}>CÓDIGO</Text>
           </View>
         </View>
 
-        {/* Texto Instrucción (Posicionado abajo) */}
+        {/* Texto Instrucción */}
         <View style={styles.instructionContainer}>
-          <Text style={styles.instructionText}>ENCAJA LA CARTA EN EL MARCO</Text>
+          <Text style={styles.instructionText}>ENFOCA LA CARTA</Text>
         </View>
 
       </View>
@@ -90,80 +84,55 @@ export const ScanOverlay = () => {
 };
 
 const styles = StyleSheet.create({
-  contentContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  contentContainer: { ...StyleSheet.absoluteFillObject },
+  scanArea: { position: 'absolute' },
   
-  // --- ÁREA CENTRAL ---
-  scanArea: {
-    position: 'absolute',
-  },
-  
-  // --- INSTRUCCIÓN ---
   instructionContainer: {
     position: 'absolute',
-    bottom: 120, // Ajusta esto según tu UI
+    bottom: 100, // Un poco más arriba para dejar sitio a la UI
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   instructionText: {
-    color: THEME.textDim,
-    fontSize: 13,
+    color: PALETTE.cream,
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 2,
+    letterSpacing: 3,
     textTransform: 'uppercase',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    opacity: 0.8,
   },
 
-  // --- ESQUINAS AZULES ---
+  // Esquinas
   corner: {
     position: 'absolute',
-    width: 32,
-    height: 32,
-    borderColor: THEME.accentBlue,
-    borderWidth: 4,
-    borderRadius: 4,
+    width: 25,
+    height: 25,
+    borderColor: PALETTE.cream, // El color clave
+    borderWidth: 3,
+    borderRadius: 2,
+    opacity: 0.9,
   },
-  topLeft: { 
-    top: 0, left: 0, 
-    borderBottomWidth: 0, borderRightWidth: 0, 
-    borderTopLeftRadius: 16 
-  },
-  topRight: { 
-    top: 0, right: 0, 
-    borderBottomWidth: 0, borderLeftWidth: 0, 
-    borderTopRightRadius: 16 
-  },
-  bottomLeft: { 
-    bottom: 0, left: 0, 
-    borderTopWidth: 0, borderRightWidth: 0, 
-    borderBottomLeftRadius: 16 
-  },
-  bottomRight: { 
-    bottom: 0, right: 0, 
-    borderTopWidth: 0, borderLeftWidth: 0, 
-    borderBottomRightRadius: 16 
-  },
+  topLeft: { top: 0, left: 0, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 12 },
+  topRight: { top: 0, right: 0, borderBottomWidth: 0, borderLeftWidth: 0, borderTopRightRadius: 12 },
+  bottomLeft: { bottom: 0, left: 0, borderTopWidth: 0, borderRightWidth: 0, borderBottomLeftRadius: 12 },
+  bottomRight: { bottom: 0, right: 0, borderTopWidth: 0, borderLeftWidth: 0, borderBottomRightRadius: 12 },
 
-  // --- BADGE ---
   glassBadge: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
-    backgroundColor: THEME.glassBg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    bottom: 12,
+    right: 12,
+    backgroundColor: PALETTE.glassBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(253, 240, 213, 0.2)',
   },
   glassBadgeText: {
-    color: THEME.textWhite,
-    fontSize: 10,
+    color: PALETTE.cream,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
 });

@@ -1,44 +1,45 @@
-// App.tsx
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CollectionProvider } from './context/CollectionContext'; // <--- NUEVO
 import { CollectionScreen } from './screens/CollectionScreen';
+import { LoginScreen } from './screens/LoginScreen';
 import { ScannerScreen } from './screens/ScannerScreen';
 import { RootStackParamList } from './types/navigation.types';
-import { COLORS } from './utils/constants';
 
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function App() {
+const Navigation = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // O un Splash Screen bonito
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: COLORS.background,
-          },
-          headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-        }}
-      >
-        <Stack.Screen 
-          name="Scanner" 
-          component={ScannerScreen}
-          options={{ 
-            title: 'OPTCG Scanner',
-            headerShown: false 
-          }}
-        />
-        <Stack.Screen 
-          name="Collection" 
-          component={CollectionScreen}
-          options={{ title: 'Colección' }}
-        />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          // STACK DE USUARIO AUTENTICADO
+          <>
+            <Stack.Screen name="Scanner" component={ScannerScreen} />
+            <Stack.Screen name="Collection" component={CollectionScreen} />
+          </>
+        ) : (
+          // STACK DE LOGIN
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
-}
+};
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      {/* El CollectionProvider debe ir DENTRO del AuthProvider para acceder al user */}
+      <CollectionProvider>
+        <Navigation />
+      </CollectionProvider>
+    </AuthProvider>
+  );
+}
