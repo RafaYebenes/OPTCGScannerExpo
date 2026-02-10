@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 // COMPONENTES & CONTEXTOS
@@ -25,11 +25,28 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   const [filterColor, setFilterColor] = useState<string | null>(null);
   const [filterSet, setFilterSet] = useState<string | null>(null);
 
+  // 1. Ocultar cabecera nativa
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  useFocusEffect(useCallback(() => { /* refresh() opcional */ }, []));
+  // --- SOLUCIÓN AL BUCLE INFINITO ---
+  // Guardamos la función refresh en una referencia para que no dispare el efecto
+  const refreshRef = useRef(refresh);
+  
+  // Actualizamos la referencia siempre que cambie la función
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
+  // Usamos la referencia dentro de useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      // Llamamos a la versión más reciente de refresh sin añadirla a dependencias
+      refreshRef.current();
+    }, []) // Array vacío = Solo se ejecuta al enfocar la pantalla
+  );
+  // ----------------------------------
 
   // --- LÓGICA DE FILTRADO ---
   const filteredRawCollection = useMemo(() => {
@@ -171,7 +188,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             
-            // HEADER EXTRAÍDO
             ListHeaderComponent={
               <CollectionHeader 
                 stats={stats}
@@ -189,7 +205,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
             onRefresh={refresh}
             showsVerticalScrollIndicator={false}
             
-            // ITEM EXTRAÍDO
             renderItem={({ item }) => (
               <CardGridItem 
                 item={item} 
@@ -211,7 +226,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
           />
         )}
 
-        {/* MODAL EXTRAÍDO */}
         <FilterModal 
           visible={showFilterModal}
           onClose={() => setShowFilterModal(false)}
