@@ -4,7 +4,7 @@ export const cardCodeParser = {
   // 2. Set: 2 dígitos (o letras O)
   // 3. Separador: Guión opcional (o guión largo)
   // 4. Número: 3 dígitos (o letras O)
-  PATTERN: /((?:OP|EB|ST|PRB|0P|O0|QP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
+  PATTERN: /((?:OP|EB|ST|PRB|0P|O0|QP|DP|CP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
 
   parse(text: string): { set: string; number: string; fullCode: string } | null {
     if (!text) return null;
@@ -20,7 +20,7 @@ export const cardCodeParser = {
 
         // --- CORRECCIÓN DE ERRORES OCR ---
         const prefixMatch = rawPrefixPart.match(/([A-Z0]+?)([0-9O]{2})$/);
-        
+
         if (!prefixMatch) continue;
 
         let prefixLetters = prefixMatch[1];
@@ -29,7 +29,9 @@ export const cardCodeParser = {
         // Corregimos el prefijo (0 -> O, Q -> O)
         prefixLetters = prefixLetters
           .replace('0', 'O')
-          .replace('Q', 'O');
+          .replace('Q', 'O')
+          .replace('D', 'O') // Si lee DP -> OP
+          .replace('C', 'O'); // Si lee CP -> OP
 
         // Corregimos números (O -> 0)
         const fixedSetNum = setNumbers.replace(/O/g, '0');
@@ -76,7 +78,7 @@ export const cardCodeParser = {
       'OP08': 'Two Legends',
       'OP09': 'The Four Emperors',
       'OP10': 'Royal Blood',
-      
+
       // --- EXTRA BOOSTERS (EB) ---
       'EB01': 'Memorial Collection',
 
@@ -123,7 +125,7 @@ export const cardCodeParser = {
     };
 
     const prefix = code.replace(/[0-9]/g, '');
-    
+
     return prefixes[prefix] ? `${prefixes[prefix]} ${code}` : code;
   }
 };

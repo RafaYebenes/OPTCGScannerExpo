@@ -15,7 +15,6 @@ import {
   Text,
   View
 } from 'react-native';
-// CAMBIO IMPORTANTE: Usamos el contexto, no el hook antiguo
 import { useCollection } from '../context/CollectionContext';
 import { CollectionScreenProps } from '../types/navigation.types';
 import { cardCodeParser } from '../utils/cardCodeParser';
@@ -38,7 +37,6 @@ const CARD_WIDTH = (SCREEN_WIDTH - (GAP * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
 const MAX_NAME_CHARS = 32; 
 
 export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }) => {
-  // CAMBIO IMPORTANTE: Extraemos deleteCard del contexto
   const { collection, stats, loading, refresh, deleteCard } = useCollection();
 
   // 1. OCULTAR CABECERA NATIVA
@@ -48,21 +46,18 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
     });
   }, [navigation]);
 
-  // Si usamos el contexto global, a veces no hace falta el useFocusEffect para recargar,
-  // pero lo dejamos por seguridad para asegurar que esté fresco al volver.
+  // Recargar al volver (opcional si el contexto ya gestiona el estado)
   useFocusEffect(
     useCallback(() => {
-      // refresh(); // Opcional si el contexto ya se actualiza solo
-    }, []) // Dejamos el array vacío o quitamos el hook si ya carga bien
+      // refresh(); 
+    }, [])
   );
 
-  // ... (El resto de tu lógica de renderizado stats/cards sigue IGUAL) ...
-  // Solo copio la parte de handleDelete para confirmar que usa el deleteCard que hemos traído
-
+  // 2. CALCULAR ESTADÍSTICAS POR RAREZA
   const rarityStats = useMemo(() => {
     const counts: Record<string, number> = {};
     collection.forEach(item => {
-      const r = item.card?.rarity ? item.card.rarity.toUpperCase() : '?'; // Ojo: item.card.rarity
+      const r = item.card?.rarity ? item.card.rarity.toUpperCase() : '?';
       let label = r;
       if (r === 'LEADER') label = 'L';
       if (r === 'COMMON') label = 'C';
@@ -91,9 +86,8 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   const groupedCollection = useMemo(() => {
     const groups = new Map();
     collection.forEach((item) => {
-      // OJO: Asegúrate que item.card existe
       if (!item.card) return;
-      const key = `${item.card.code}-${item.is_foil}`; // Usamos is_foil en BD
+      const key = `${item.card.code}-${item.is_foil}`;
       if (groups.has(key)) {
         const existing = groups.get(key);
         existing.quantity += 1;
@@ -101,7 +95,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
       } else {
         groups.set(key, { 
             ...item, 
-            code: item.card.code, // Mapeamos propiedades planas para facilitar render
+            code: item.card.code, 
             name: item.card.name,
             image: item.card.image_url,
             parsedSet: item.card.set_code,
@@ -124,7 +118,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         { 
             text: 'Eliminar', 
             style: 'destructive', 
-            onPress: () => deleteCard(idToDelete) // Ahora sí funciona
+            onPress: () => deleteCard(idToDelete) 
         },
       ]
     );
@@ -134,6 +128,9 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
     <Pressable 
       style={({pressed}) => [styles.slabContainer, pressed && styles.slabPressed]}
       onLongPress={() => handleDelete(item)}
+      // ⬇️⬇️ AQUÍ FALTABA ESTO ⬇️⬇️
+      onPress={() => navigation.navigate('CardDetail', { item })} 
+      // ⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️⬆️
       delayLongPress={300}
     >
       <View style={StyleSheet.absoluteFill}>
@@ -268,13 +265,13 @@ const styles = StyleSheet.create({
   columnWrapper: { justifyContent: 'flex-start', gap: GAP, marginBottom: GAP },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
 
-  // --- HEADER ---
+  // HEADER
   headerContainer: { marginTop: 10, marginBottom: 25, paddingHorizontal: 10 },
   headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   subTitle: { color: PALETTE.lightBlue, fontSize: 10, letterSpacing: 3, fontWeight: 'bold', marginBottom: 4 },
   mainTitle: { color: PALETTE.cream, fontSize: 36, fontWeight: '300', letterSpacing: 1 },
 
-  // Stats Principales
+  // Stats
   mainStatsRow: {
     flexDirection: 'row',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -291,97 +288,55 @@ const styles = StyleSheet.create({
   statLabelAlt: { color: PALETTE.gold, fontSize: 9, marginTop: 2, fontWeight: '700' },
   verticalLine: { width: 1, height: '60%', backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center' },
 
-  // Scroll de Rarezas
-  rarityScrollContainer: {
-    flexDirection: 'row',
-  },
+  // Rarezas
+  rarityScrollContainer: { flexDirection: 'row' },
   rarityChip: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 45,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    alignItems: 'center', justifyContent: 'center',
+    minWidth: 45, paddingVertical: 6, paddingHorizontal: 8,
     backgroundColor: 'rgba(0, 48, 73, 0.5)',
-    borderRadius: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8, marginRight: 8,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
   rarityCount: { color: PALETTE.cream, fontSize: 14, fontWeight: 'bold' },
   rarityLabel: { color: PALETTE.lightBlue, fontSize: 9, fontWeight: '700', marginTop: 1 },
 
-  // --- CARTA (SLAB) ---
+  // CARTA (SLAB)
   slabContainer: {
-    width: CARD_WIDTH,
-    aspectRatio: 63 / 88, 
-    borderRadius: 8,
-    backgroundColor: '#000000',
-    overflow: 'hidden', 
-    position: 'relative',
+    width: CARD_WIDTH, aspectRatio: 63 / 88, 
+    borderRadius: 8, backgroundColor: '#000000',
+    overflow: 'hidden', position: 'relative',
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 6, elevation: 6,
   },
   slabPressed: { opacity: 0.9, transform: [{scale: 0.98}] },
-  
-  borderFrame: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 8,
-    zIndex: 10, 
-    pointerEvents: 'none'
-  },
-
+  borderFrame: { ...StyleSheet.absoluteFillObject, borderRadius: 8, zIndex: 10, pointerEvents: 'none' },
   cardImage: { width: '100%', height: '100%' },
   placeholderBg: { flex: 1, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
 
   topGradient: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    height: 35, 
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: 6, paddingTop: 6,
-    zIndex: 2,
+    position: 'absolute', top: 0, left: 0, right: 0, height: 35, 
+    flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 6, paddingTop: 6, zIndex: 2,
   },
   codeText: { 
-    color: 'rgba(255,255,255,0.95)', 
-    fontSize: 9, 
-    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.95)', fontSize: 9, fontWeight: 'bold',
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 2
   },
   starIcon: { color: PALETTE.gold, fontSize: 10, fontWeight: 'bold' },
 
   bottomGradient: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    height: 70, 
-    justifyContent: 'flex-end',
-    paddingBottom: 10, 
-    paddingHorizontal: 5,
-    zIndex: 2,
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, 
+    justifyContent: 'flex-end', paddingBottom: 10, paddingHorizontal: 5, zIndex: 2,
   },
   setNameText: { 
-    color: PALETTE.lightBlue, 
-    fontSize: 7, 
-    fontWeight: '700', 
-    textAlign: 'center', 
-    marginBottom: 2,
-    opacity: 0.9 
+    color: PALETTE.lightBlue, fontSize: 7, fontWeight: '700', textAlign: 'center', marginBottom: 2, opacity: 0.9 
   },
   nameText: { 
-    color: PALETTE.cream, 
-    fontSize: 9, 
-    fontWeight: '600', 
-    textAlign: 'center', 
-    width: '100%',
-    lineHeight: 12,
+    color: PALETTE.cream, fontSize: 9, fontWeight: '600', textAlign: 'center', width: '100%', lineHeight: 12,
     textShadowColor: '#000', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 3
   },
 
   qtyBadgeIntegrated: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: PALETTE.red,
-    borderTopLeftRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    zIndex: 20, 
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: PALETTE.red, borderTopLeftRadius: 8, paddingHorizontal: 6, paddingVertical: 2, zIndex: 20, 
   },
   qtyText: { color: '#fff', fontSize: 9, fontWeight: 'bold' },
   
