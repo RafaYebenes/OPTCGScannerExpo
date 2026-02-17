@@ -13,8 +13,8 @@ import {
     Text,
     View
 } from 'react-native';
-import { useCollection } from '../context/CollectionContext';
-import { cardCodeParser } from '../utils/cardCodeParser';
+import { useCollection } from '../../context/CollectionContext';
+import { cardCodeParser } from '../../utils/cardCodeParser';
 
 // --- PALETA ---
 const THEME = {

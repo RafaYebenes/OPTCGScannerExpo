@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ScannedCard } from '../types/card.types';
-import { cardCodeParser } from '../utils/cardCodeParser';
+import { ScannedCard } from '../../types/card.types';
+import { cardCodeParser } from '../../utils/cardCodeParser';
 
 // --- PALETA ---
 const PALETTE = {

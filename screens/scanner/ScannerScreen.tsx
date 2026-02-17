@@ -17,13 +17,13 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
-import { DetectionFeedback } from '../components/DetectionFeedback';
-import { RecentScans } from '../components/RecentScans';
-import { ScanOverlay } from '../components/ScanOverlay';
-import { useCardScanner } from '../hooks/useCardScanner';
-import { useCardStorage } from '../hooks/useCardStorage';
-import { ScannerScreenProps } from '../types/navigation.types';
-import { SCANNER_CONFIG } from '../utils/constants';
+import { DetectionFeedback } from '../../components/scanner/DetectionFeedback';
+import { RecentScans } from '../../components/scanner/RecentScans';
+import { ScanOverlay } from '../../components/scanner/ScanOverlay';
+import { useCardScanner } from '../../hooks/useCardScanner';
+import { useCardStorage } from '../../hooks/useCardStorage';
+import { ScannerScreenProps } from '../../types/navigation.types';
+import { SCANNER_CONFIG } from '../../utils/constants';
 
 const PALETTE = {
   bgDarkGlass: 'rgba(0, 21, 37, 0.9)',
@@ -46,12 +46,12 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   // Estados
   const [isAltMode, setIsAltMode] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  
+
   // Manual Input
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualCode, setManualCode] = useState('');
 
-  const [focusPoint, setFocusPoint] = useState<{x: number, y: number} | null>(null);
+  const [focusPoint, setFocusPoint] = useState<{ x: number, y: number } | null>(null);
 
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isProcessingRef = useRef(false);
@@ -63,14 +63,14 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     if (!camera.current || !hasPermission || showManualInput) return;
-    
+
     scanIntervalRef.current = setInterval(async () => {
       if (isProcessingRef.current) return;
       try {
         isProcessingRef.current = true;
-        const photo = await camera.current?.takePhoto({ 
-            flash: torchOn ? 'on' : 'off', 
-            enableShutterSound: false 
+        const photo = await camera.current?.takePhoto({
+          flash: torchOn ? 'on' : 'off',
+          enableShutterSound: false
         });
 
         if (photo) {
@@ -96,12 +96,12 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
   const handleTapToFocus = async (event: any) => {
     try {
-        const { pageX, pageY } = event.nativeEvent;
-        await camera.current?.focus({ x: pageX, y: pageY });
-        setFocusPoint({ x: pageX, y: pageY });
-        setTimeout(() => setFocusPoint(null), 1000);
+      const { pageX, pageY } = event.nativeEvent;
+      await camera.current?.focus({ x: pageX, y: pageY });
+      setFocusPoint({ x: pageX, y: pageY });
+      setTimeout(() => setFocusPoint(null), 1000);
     } catch (e) {
-        console.log("Error enfocando:", e);
+      console.log("Error enfocando:", e);
     }
   };
 
@@ -118,29 +118,35 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
-      
+
       <Pressable style={StyleSheet.absoluteFill} onPress={handleTapToFocus}>
         <Camera
-            ref={camera}
-            style={StyleSheet.absoluteFill}
-            device={device}
-            isActive={!showManualInput}
-            photo={true}
-            zoom={device.neutralZoom * 1.5}
-            enableZoomGesture={true}
+          ref={camera}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={!showManualInput}
+          photo={true}
+          zoom={device.neutralZoom * 1.5}
+          enableZoomGesture={true}
         />
         {focusPoint && (
-            <View style={[styles.focusSquare, { left: focusPoint.x - 30, top: focusPoint.y - 30 }]} />
+          <View style={[styles.focusSquare, { left: focusPoint.x - 30, top: focusPoint.y - 30 }]} />
         )}
       </Pressable>
 
       <ScanOverlay />
-      <DetectionFeedback detectionState={detectionState} />
+      <DetectionFeedback detectionState={
+        {
+          isDetecting: detectionState.isProcessing,
+          currentCode: detectionState.lastSavedCode,
+          confirmationCount: 1,
+          lastSavedCode: detectionState.lastSavedCode,
+        }} />
 
       {/* --- BARRA SUPERIOR (Colección | Flash + AA) --- */}
       <SafeAreaView style={styles.topControlsContainer}>
         <View style={styles.topBar}>
-          
+
           <Pressable
             style={({ pressed }) => [styles.glassButton, pressed && styles.glassButtonPressed]}
             onPress={() => navigation.navigate('Collection')}
@@ -150,32 +156,32 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           </Pressable>
 
           <View style={styles.topRightButtons}>
-             {/* Flash */}
-             <Pressable
-                style={[styles.circleButton, torchOn && {backgroundColor: PALETTE.gold, borderColor: PALETTE.gold}]}
-                onPress={() => setTorchOn(!torchOn)}
-              >
-                <Text style={{fontSize: 18}}>{torchOn ? '⚡' : '🔦'}</Text>
-             </Pressable>
+            {/* Flash */}
+            <Pressable
+              style={[styles.circleButton, torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold }]}
+              onPress={() => setTorchOn(!torchOn)}
+            >
+              <Text style={{ fontSize: 18 }}>{torchOn ? '⚡' : '🔦'}</Text>
+            </Pressable>
 
-             {/* AA (Arriba) */}
-             <Pressable
-                style={[styles.circleButton, isAltMode && styles.aaButtonActive]}
-                onPress={() => setIsAltMode(!isAltMode)}
-             >
-                <Text style={[styles.aaTextTop, isAltMode && { color: '#000' }]}>AA</Text>
-             </Pressable>
+            {/* AA (Arriba) */}
+            <Pressable
+              style={[styles.circleButton, isAltMode && styles.aaButtonActive]}
+              onPress={() => setIsAltMode(!isAltMode)}
+            >
+              <Text style={[styles.aaTextTop, isAltMode && { color: '#000' }]}>AA</Text>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
 
       {/* --- BOTÓN FLOTANTE MANUAL (SOLO ICONO) --- */}
       {/* Situado abajo a la derecha, encima de la lista */}
-      <Pressable 
-        style={({pressed}) => [styles.manualFloatingBtn, pressed && {opacity: 0.8}]} 
+      <Pressable
+        style={({ pressed }) => [styles.manualFloatingBtn, pressed && { opacity: 0.8 }]}
         onPress={() => setShowManualInput(true)}
       >
-        <Text style={{fontSize: 22}}>⌨️</Text>
+        <Text style={{ fontSize: 22 }}>⌨️</Text>
       </Pressable>
 
       {/* --- MODAL MANUAL --- */}
@@ -186,33 +192,33 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         onRequestClose={() => setShowManualInput(false)}
       >
         <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>INGRESAR CÓDIGO</Text>
-                <TextInput 
-                    style={styles.input}
-                    placeholder="Ej: OP05-060"
-                    placeholderTextColor="#666"
-                    autoCapitalize="characters"
-                    value={manualCode}
-                    onChangeText={setManualCode}
-                    autoFocus
-                />
-                <View style={styles.modalButtons}>
-                    <Pressable style={styles.btnCancel} onPress={() => setShowManualInput(false)}>
-                        <Text style={styles.btnText}>Cancelar</Text>
-                    </Pressable>
-                    <Pressable style={styles.btnConfirm} onPress={handleManualSubmit}>
-                        <Text style={[styles.btnText, {color: '#000'}]}>Buscar</Text>
-                    </Pressable>
-                </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>INGRESAR CÓDIGO</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: OP05-060"
+              placeholderTextColor="#666"
+              autoCapitalize="characters"
+              value={manualCode}
+              onChangeText={setManualCode}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.btnCancel} onPress={() => setShowManualInput(false)}>
+                <Text style={styles.btnText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.btnConfirm} onPress={handleManualSubmit}>
+                <Text style={[styles.btnText, { color: '#000' }]}>Buscar</Text>
+              </Pressable>
             </View>
+          </View>
         </View>
       </Modal>
 
       <View style={styles.bottomListContainer}>
         <RecentScans
-            cards={recentCards}
-            onCardPress={() => navigation.navigate('Collection')}
+          cards={recentCards}
+          onCardPress={() => navigation.navigate('Collection')}
         />
       </View>
     </View>
@@ -220,14 +226,14 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 };
 
 const PermissionRequest = ({ onRequest }: { onRequest: () => void }) => (
-    <View style={styles.centerContainer}>
-      <Text style={styles.textInfo}>Cámara necesaria</Text>
-      <Pressable style={styles.actionButton} onPress={onRequest}><Text style={styles.textBtn}>Permitir</Text></Pressable>
-    </View>
+  <View style={styles.centerContainer}>
+    <Text style={styles.textInfo}>Cámara necesaria</Text>
+    <Pressable style={styles.actionButton} onPress={onRequest}><Text style={styles.textBtn}>Permitir</Text></Pressable>
+  </View>
 );
-  
+
 const LoadingView = () => (
-    <View style={styles.centerContainer}><ActivityIndicator size="large" color={PALETTE.gold} /></View>
+  <View style={styles.centerContainer}><ActivityIndicator size="large" color={PALETTE.gold} /></View>
 );
 
 const styles = StyleSheet.create({
@@ -236,12 +242,12 @@ const styles = StyleSheet.create({
   textInfo: { color: PALETTE.cream, fontSize: 16, marginBottom: 20 },
   textBtn: { color: '#000', fontWeight: 'bold' },
   actionButton: { backgroundColor: PALETTE.cream, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 25 },
-  
+
   // BARRA SUPERIOR
   topControlsContainer: { position: 'absolute', top: 45, left: 0, right: 0, zIndex: 50 },
-  topBar: { 
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 0 
+  topBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 0
   },
   topRightButtons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
 
@@ -267,28 +273,28 @@ const styles = StyleSheet.create({
 
   // BOTÓN FLOTANTE MANUAL
   manualFloatingBtn: {
-      position: 'absolute',
-      bottom: 150, // Lo subo para que no choque con la lista de recientes
-      right: 20,
-      width: 44, height: 44,
-      borderRadius: 12,
-      backgroundColor: PALETTE.bgDarkGlass,
-      justifyContent: 'center', alignItems: 'center',
-      borderWidth: 1, borderColor: PALETTE.glassBorder,
-      zIndex: 60,
-      // Sombra
-      shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity:0.5, shadowRadius:4, elevation: 5
+    position: 'absolute',
+    bottom: 150, // Lo subo para que no choque con la lista de recientes
+    right: 20,
+    width: 44, height: 44,
+    borderRadius: 12,
+    backgroundColor: PALETTE.bgDarkGlass,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: PALETTE.glassBorder,
+    zIndex: 60,
+    // Sombra
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 5
   },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { 
-      width: '85%', backgroundColor: '#001525', padding: 24, borderRadius: 16,
-      borderWidth: 1, borderColor: PALETTE.gold, elevation: 10
+  modalContent: {
+    width: '85%', backgroundColor: '#001525', padding: 24, borderRadius: 16,
+    borderWidth: 1, borderColor: PALETTE.gold, elevation: 10
   },
   modalTitle: { color: PALETTE.gold, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, letterSpacing: 2 },
   input: {
-      backgroundColor: '#000', color: '#fff', fontSize: 20, textAlign: 'center', fontWeight: 'bold',
-      padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', marginBottom: 24
+    backgroundColor: '#000', color: '#fff', fontSize: 20, textAlign: 'center', fontWeight: 'bold',
+    padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', marginBottom: 24
   },
   modalButtons: { flexDirection: 'row', gap: 12 },
   btnCancel: { flex: 1, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#666', borderRadius: 12 },
@@ -296,13 +302,13 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 
   focusSquare: {
-      position: 'absolute', width: 60, height: 60,
-      borderWidth: 2, borderColor: PALETTE.gold,
-      opacity: 0.8, borderStyle: 'dashed'
+    position: 'absolute', width: 60, height: 60,
+    borderWidth: 2, borderColor: PALETTE.gold,
+    opacity: 0.8, borderStyle: 'dashed'
   },
 
   bottomListContainer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingBottom: Platform.OS === 'android' ? 40 : 30, 
+    paddingBottom: Platform.OS === 'android' ? 40 : 30,
   },
 });

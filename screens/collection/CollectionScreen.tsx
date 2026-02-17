@@ -4,12 +4,12 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { ActivityIndicator, Alert, FlatList, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 // COMPONENTES & CONTEXTOS
-import { CardGridItem } from '../components/collection/CardGridItem';
-import { CollectionHeader } from '../components/collection/CollectionHeader';
-import { FilterModal } from '../components/collection/FilterModal';
-import { useCollection } from '../context/CollectionContext';
-import { CollectionScreenProps } from '../types/navigation.types';
-import { PALETTE, SPACING } from '../utils/theme';
+import { CardGridItem } from '../../components/collection/CardGridItem';
+import { CollectionHeader } from '../../components/collection/CollectionHeader';
+import { FilterModal } from '../../components/collection/FilterModal';
+import { useCollection } from '../../context/CollectionContext';
+import { CollectionScreenProps } from '../../types/navigation.types';
+import { PALETTE, SPACING } from '../../utils/theme';
 
 const AVAILABLE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
 
@@ -208,7 +208,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
             renderItem={({ item }) => (
               <CardGridItem 
                 item={item} 
-                onPress={(i) => navigation.navigate('CardDetail', { item: i })} 
+                onPress={(i) => navigation.navigate('CardDetail', { card: i })} 
                 onLongPress={handleDelete}
               />
             )}

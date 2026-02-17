@@ -8,10 +8,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CollectionProvider } from './context/CollectionContext';
 
 // Pantallas
-import { CardDetailScreen } from './screens/CardDetailScreen';
-import { CollectionScreen } from './screens/CollectionScreen';
-import { LoginScreen } from './screens/LoginScreen';
-import { ScannerScreen } from './screens/ScannerScreen';
+import { CardDetailScreen } from './screens/collection/CardDetailScreen';
+import { CollectionScreen } from './screens/collection/CollectionScreen';
+import { LoginScreen } from './screens/login/LoginScreen';
+import { ScannerScreen } from './screens/scanner/ScannerScreen';
 
 // Tipos
 import { RootStackParamList } from './types/navigation.types';

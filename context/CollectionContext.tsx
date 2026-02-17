@@ -18,6 +18,7 @@ export interface CollectionItem {
     variant: string;
     image_url: string;
     market_price_eur: number;
+    color: string;
   };
 }
 
@@ -90,7 +91,6 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
     await supabaseService.updateCardQuantity(id, newQuantity);
   };
 
-  // Esta es la función que estabas definiendo pero no compartías
   const addCard = async (code: string, isFoil: boolean = false) => {
     if (!user) return { success: false, message: 'Usuario no autenticado' };
 
@@ -99,7 +99,7 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
       const result = await supabaseService.addCardToCollection(user.id, code, isFoil);
 
       if (result.success) {
-        await loadData(); // Recargamos usando loadData que es tu función interna
+        await loadData(); // Recargamos usando loadData
         return { success: true, message: 'Carta añadida' };
       } else {
         return { success: false, message: result.error || 'Error al añadir' };
@@ -135,7 +135,7 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
         deleteCard,
         updateQuantity,
         stats,
-        addCard, // <--- 🚨 ESTO ES LO QUE FALTABA 🚨
+        addCard
       }}
     >
       {children}

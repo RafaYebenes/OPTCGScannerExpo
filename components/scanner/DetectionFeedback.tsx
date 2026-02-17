@@ -10,8 +10,8 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
-import { DetectionState } from '../types/card.types';
-import { SCANNER_CONFIG } from '../utils/constants';
+import { DetectionState } from '../../types/card.types';
+import { SCANNER_CONFIG } from '../../utils/constants';
 
 // --- PALETA "ONE PIECE" ---
 const THEME = {
