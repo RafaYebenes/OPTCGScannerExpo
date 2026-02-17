@@ -1,139 +1,70 @@
-import { useCallback, useRef, useState } from 'react';
-import { Vibration } from 'react-native';
-import { supabaseService } from '../services/supabaseService'; // <--- USAMOS EL NUEVO SERVICIO
-import { DetectionState } from '../types/card.types';
+import { useCallback, useState } from 'react';
+import { useCollection } from '../context/CollectionContext';
 import { cardCodeParser } from '../utils/cardCodeParser';
-import { SCANNER_CONFIG } from '../utils/constants';
 
 export const useCardScanner = () => {
-  const [detectionState, setDetectionState] = useState<DetectionState>({
-    isDetecting: false,
-    currentCode: null,
-    confirmationCount: 0,
-    lastSavedCode: null,
+  const { addCard } = useCollection(); // Usamos la función del contexto
+  
+  const [detectionState, setDetectionState] = useState({
+    lastScanned: '',
+    lastSavedCode: null as string | null,
+    isProcessing: false,
+    feedbackMessage: null as string | null,
+    feedbackType: null as 'success' | 'error' | 'info' | null,
   });
 
-  const lastProcessTimeRef = useRef(0);
-  const consecutiveDetectionsRef = useRef<Map<string, number>>(new Map());
-  const lastSavedTimeRef = useRef<Map<string, number>>(new Map());
+  // AHORA ACEPTAMOS isAltMode AQUÍ ⬇️
+  const processDetectedText = useCallback(async (text: string, isAltMode: boolean) => {
+    
+    // 1. Limpieza básica para no procesar basura
+    if (!text || text.length < 5) return;
 
-  const processDetectedText = useCallback((text: string) => {
-    const now = Date.now();
+    // 2. Parseamos el código (OP05-060)
+    const parsed = cardCodeParser.parse(text);
+    
+    if (parsed) {
+      // Evitar procesar lo mismo 20 veces seguidas muy rápido
+      if (detectionState.isProcessing || parsed.fullCode === detectionState.lastScanned) {
+        return;
+      }
 
-    // 1. Control de FPS (Throttle)
-    if (now - lastProcessTimeRef.current < SCANNER_CONFIG.THROTTLE_MS) {
-      return;
-    }
-    lastProcessTimeRef.current = now;
+      setDetectionState(prev => ({ ...prev, isProcessing: true, lastScanned: parsed.fullCode }));
 
-    // 2. Intentar parsear el código
-    const cardCode = cardCodeParser.parse(text);
+      try {
+        // 3. LLAMAMOS A ADD CARD PASANDO EL MODO ALT ⬇️
+        const result = await addCard(parsed.fullCode, isAltMode);
 
-    // Si no es un código válido, limpiamos y salimos
-    if (!cardCode || !cardCodeParser.validate(cardCode)) {
-      consecutiveDetectionsRef.current.clear();
+        if (result.success) {
+           setDetectionState({
+             lastScanned: parsed.fullCode,
+             lastSavedCode: parsed.fullCode,
+             isProcessing: false,
+             feedbackMessage: `${parsed.fullCode} ${isAltMode ? '(AA)' : ''} GUARDADA`,
+             feedbackType: 'success'
+           });
+           
+           // Limpiamos el estado después de un momento para permitir escanear la misma carta de nuevo si se quiere
+           setTimeout(() => {
+             setDetectionState(prev => ({ ...prev, lastScanned: '' }));
+           }, 2000);
 
-      // Solo actualizamos estado si estábamos detectando algo antes (para evitar re-renders)
-      if (detectionState.isDetecting) {
+        } else {
+           throw new Error(result.message);
+        }
+
+      } catch (error) {
         setDetectionState(prev => ({
           ...prev,
-          isDetecting: false,
-          currentCode: null,
-          confirmationCount: 0,
+          isProcessing: false,
+          feedbackMessage: 'Error al guardar',
+          feedbackType: 'error'
         }));
       }
-      return;
     }
-
-    const codeString = cardCode.fullCode;
-
-    // 3. Cooldown: Si ya guardamos esta carta hace poco, la ignoramos
-    const lastSavedTime = lastSavedTimeRef.current.get(codeString) || 0;
-    if (now - lastSavedTime < SCANNER_CONFIG.COOLDOWN_MS) {
-      return;
-    }
-
-    // 4. Lógica de Confirmación (requiere N lecturas seguidas)
-    const currentCount = (consecutiveDetectionsRef.current.get(codeString) || 0) + 1;
-    consecutiveDetectionsRef.current.set(codeString, currentCount);
-
-    // Limpieza: Si detectamos una carta nueva, borramos el contador de las otras
-    consecutiveDetectionsRef.current.forEach((_, key) => {
-      if (key !== codeString) consecutiveDetectionsRef.current.delete(key);
-    });
-
-    // Actualizamos UI
-    setDetectionState(prev => ({
-      ...prev,
-      isDetecting: true,
-      currentCode: codeString,
-      confirmationCount: currentCount,
-      // Mantenemos el lastSavedCode para que la animación de éxito no desaparezca de golpe
-    }));
-    console.log(`🔍 Detectado: ${codeString} | Conteo: ${currentCount}`);
-    // 5. ¡CONFIRMADO! Guardamos en la Nube
-    if (currentCount >= SCANNER_CONFIG.CONFIRMATION_THRESHOLD) {
-      console.log(`🔍 Detectado2: ${codeString} | Conteo: ${currentCount}`);
-
-      // Detección básica de Alt Art (por si quieres implementarla luego con estrellas)
-      const isAltArt = false;
-
-      saveDetectedCardToCloud(codeString, isAltArt);
-
-      // Reseteamos contadores para esta carta
-      consecutiveDetectionsRef.current.clear();
-      lastSavedTimeRef.current.set(codeString, now);
-    }
-  }, [detectionState.isDetecting, detectionState.lastSavedCode]); // Optimizamos dependencias
-
-  const saveDetectedCardToCloud = useCallback(async (codeString: string, isAltArt: boolean) => {
-    // 1. Feedback Físico Inmediato (Usuario feliz)
-    Vibration.vibrate([0, 50, 50, 100]);
-    console.log(`🎉 Carta detectada: ${codeString} | Alt Art: ${isAltArt}`);
-    // 2. Guardado Asíncrono en Supabase
-    // No esperamos con 'await' bloqueante para que la UI no se congele,
-    // pero gestionamos la promesa.
-    supabaseService.addCardToCollection(codeString, isAltArt).then((success) => {
-      if (success) {
-        console.log(`✅ Carta ${codeString} guardada en la nube`);
-      } else {
-        console.log(`❌ Error o duplicado al guardar ${codeString}`);
-      }
-    });
-
-    // 3. Feedback Visual Inmediato
-    setDetectionState(prev => ({
-      ...prev,
-      lastSavedCode: codeString,
-      confirmationCount: 0,
-    }));
-
-    // 4. Ocultar mensaje de éxito tras unos segundos
-    setTimeout(() => {
-      setDetectionState(prev => ({
-        ...prev,
-        isDetecting: false,
-        currentCode: null,
-        lastSavedCode: null,
-      }));
-    }, SCANNER_CONFIG.SUCCESS_DISPLAY_MS);
-
-  }, []);
-
-  const reset = useCallback(() => {
-    consecutiveDetectionsRef.current.clear();
-    lastSavedTimeRef.current.clear();
-    setDetectionState({
-      isDetecting: false,
-      currentCode: null,
-      confirmationCount: 0,
-      lastSavedCode: null,
-    });
-  }, []);
+  }, [addCard, detectionState.isProcessing, detectionState.lastScanned]);
 
   return {
     detectionState,
-    processDetectedText,
-    reset,
+    processDetectedText
   };
 };

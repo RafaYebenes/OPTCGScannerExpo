@@ -1,0 +1,163 @@
+{
+  "name": "OPSCANNER - Tareas Detalladas",
+  "desc": "Importación completa con 28 tareas detalladas",
+  "lists": [
+    {
+      "name": "BUGS",
+      "cards": [
+        {
+          "name": "Código de carta no desaparece",
+          "desc": "**Prioridad:** 🔴 Alta\n**Estimación:** 2-4 horas\n\n## Problema\nDespués de escanear una carta, el código detectado permanece visible en la UI cuando debería desaparecer tras el feedback de éxito.\n\n## Análisis Técnico\nEl estado `detectionState.lastSavedCode` no se está limpiando correctamente después del timeout de animación.\n\n## Solución Propuesta\n```typescript\n// En useCardScanner.ts\nsetTimeout(() => {\n  setDetectionState(prev => ({\n    ...prev,\n    lastSavedCode: null,\n    isDetecting: false\n  }));\n}, 2000);\n```\n\n## Archivos Afectados\n- hooks/useCardScanner.ts\n- components/DetectionFeedback.tsx\n\n## ✅ Checklist\n- [ ] Identificar el timeout actual en DetectionFeedback\n- [ ] Añadir cleanup de lastSavedCode en useCardScanner\n- [ ] Verificar que FadeOutUp funciona correctamente\n- [ ] Testing en dispositivo físico"
+        },
+        {
+          "name": "Revisar textos de los sets en cardDetail",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 1-2 horas\n\n## Problema\nLos nombres de sets en CardDetailScreen no se muestran correctamente o están incompletos.\n\n## Solución\nCrear mapeo completo de sets en utils/constants.ts y actualizar cardCodeParser.\n\n## Archivos Afectados\n- utils/constants.ts\n- utils/cardCodeParser.ts\n- screens/CardDetailScreen.tsx\n\n## ✅ Checklist\n- [ ] Investigar lista completa de sets del juego\n- [ ] Crear constante SET_NAMES con todos los sets\n- [ ] Actualizar getSetName() para usar la constante\n- [ ] Verificar en CardDetailScreen que se muestran correctamente"
+        },
+        {
+          "name": "Imágenes Alters",
+          "desc": "**Prioridad:** 🔴 Alta\n**Estimación:** 8-12 horas\n\n## Problema\nLas URLs de imágenes de cartas alternate art no se generan correctamente.\n\n## Tipos de Variantes\n1. Normal: OP01-001.png\n2. Parallel (V2): OP01-001_p1.png\n3. Manga/Special (V3): OP01-001_p2.png\n4. SP (Special): Investigar patrón\n5. Winner/Judge: Investigar patrón\n\n## Solución\nCrear script verify_card_images.js para verificar patrones y actualizar import_cards.js.\n\n## ✅ Checklist\n- [ ] Investigar patrones de URLs para cada variante\n- [ ] Crear script verify_card_images.js\n- [ ] Ejecutar verificación sobre BD actual\n- [ ] Documentar todos los patrones encontrados\n- [ ] Actualizar generateImageUrl() con todos los patrones\n- [ ] Re-ejecutar import_cards.js con nueva lógica\n- [ ] Verificar en app que todas las imágenes cargan"
+        }
+      ]
+    },
+    {
+      "name": "USERS",
+      "cards": [
+        {
+          "name": "Perfil de usuario",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 6-8 horas\n\n## Objetivo\nCrear pantalla de perfil con información personal, estadísticas y configuración.\n\n## Funcionalidades\n- Avatar editable\n- Estadísticas de colección\n- Configuración de app\n\n## Implementación\nCrear ProfileScreen con componentes: ProfileHeader, StatsCard, SettingsSection.\n\n## ✅ Checklist\n- [ ] Crear nueva pantalla ProfileScreen\n- [ ] Implementar ProfileHeader con avatar editable\n- [ ] Crear componente StatsCard\n- [ ] Implementar SettingsSection\n- [ ] Añadir columnas a tabla profiles\n- [ ] Configurar Supabase Storage para avatares\n- [ ] Añadir navegación desde CollectionScreen"
+        },
+        {
+          "name": "Amigos",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 12-16 horas\n\n## Objetivo\nSistema de amigos para compartir colecciones.\n\n## Funcionalidades\n- Búsqueda de usuarios\n- Enviar/aceptar solicitudes\n- Ver colección de amigos\n\n## Modelo de Datos\nCrear tablas: friend_requests, friendships.\n\n## ✅ Checklist\n- [ ] Crear tablas friend_requests y friendships\n- [ ] Generar friend_code para usuarios\n- [ ] Implementar friendsService\n- [ ] Crear FriendsScreen\n- [ ] Implementar AddFriendScreen\n- [ ] Crear FriendProfileScreen\n- [ ] Testing de flujos"
+        },
+        {
+          "name": "Préstamo de cartas",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 10-14 horas\n\n## Objetivo\nSistema para registrar préstamos de cartas entre amigos.\n\n## Funcionalidades\n- Crear préstamo\n- Marcar como devuelto\n- Ver préstamos activos\n\n## Modelo\nTabla card_loans con validaciones.\n\n## ✅ Checklist\n- [ ] Crear tabla card_loans\n- [ ] Implementar loanService\n- [ ] Crear LoansScreen\n- [ ] Implementar CreateLoanScreen\n- [ ] Actualizar lógica de quantity\n- [ ] Testing de edge cases"
+        }
+      ]
+    },
+    {
+      "name": "SCANNER",
+      "cards": [
+        {
+          "name": "Cambiar parámetros de análisis en función de la luz disponible",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 6-8 horas\n\n## Objetivo\nAjustar parámetros de OCR según iluminación.\n\n## Implementación\nCrear hook useLightDetection y ajustar throttle/contraste dinámicamente.\n\n## ✅ Checklist\n- [ ] Crear hook useLightDetection\n- [ ] Implementar preprocessImage con ajuste de contraste\n- [ ] Añadir configuración dinámica en ScannerScreen\n- [ ] Crear indicador visual en ScanOverlay\n- [ ] Testing en diferentes condiciones"
+        },
+        {
+          "name": "Identificación mangas, sp y cartas especiales más allá de los alters",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 8-10 horas\n\n## Objetivo\nDetectar correctamente cartas Manga, SP, Winner, Judge.\n\n## Estrategia\nSistema híbrido: detectar código → mostrar selector si hay múltiples variantes.\n\n## Implementación\nCrear componente VariantSelector y método getCardVariants().\n\n## ✅ Checklist\n- [ ] Implementar getCardVariants() en supabaseService\n- [ ] Crear componente VariantSelector\n- [ ] Integrar selector en flujo de escaneo\n- [ ] Diseñar UI del selector\n- [ ] Testing con cartas de múltiples variantes"
+        },
+        {
+          "name": "Añadir cartas promo, judge y winner",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 4-6 horas\n\n## Objetivo\nImportar cartas especiales con códigos P-XXX, J-XXX, W-XXX.\n\n## Implementación\nActualizar cardCodeParser y crear script import_special_cards.js.\n\n## ✅ Checklist\n- [ ] Investigar lista completa de cartas especiales\n- [ ] Actualizar cardCodeParser para códigos P/J/W/S\n- [ ] Crear sets especiales en BD\n- [ ] Crear script import_special_cards.js\n- [ ] Ejecutar importación\n- [ ] Testing de escaneo"
+        }
+      ]
+    },
+    {
+      "name": "DECKS",
+      "cards": [
+        {
+          "name": "Crear deck",
+          "desc": "**Prioridad:** 🔴 Alta\n**Estimación:** 16-20 horas\n\n## Objetivo\nSistema completo de creación de mazos con validación de reglas.\n\n## Reglas One Piece TCG\n- 50 cartas exactas (Leader + 49)\n- Máximo 4 copias por carta\n- Colores compatibles con Leader\n\n## Implementación\nCrear tablas decks/deck_cards, DeckBuilderScreen, validación completa.\n\n## ✅ Checklist\n- [ ] Crear tablas decks y deck_cards\n- [ ] Implementar deckService completo\n- [ ] Crear DecksListScreen\n- [ ] Implementar DeckBuilderScreen\n- [ ] Crear CardSelectorScreen\n- [ ] Implementar validación de reglas\n- [ ] Testing exhaustivo"
+        },
+        {
+          "name": "Importar deck",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 6-8 horas\n\n## Objetivo\nImportar mazos desde texto (One Piece Top Decks, Limitless TCG).\n\n## Formatos\n- OPTD: \"4x OP01-001 Nombre\"\n- Limitless: \"4 OP01-001 Nombre [Leader]\"\n- JSON propio\n\n## Implementación\nParser flexible + ImportDeckScreen.\n\n## ✅ Checklist\n- [ ] Implementar parseDecklistText\n- [ ] Crear método importDeck\n- [ ] Implementar ImportDeckScreen\n- [ ] Testing con decklists reales\n- [ ] Gestionar cartas no encontradas"
+        },
+        {
+          "name": "Publicar deck",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 8-10 horas\n\n## Objetivo\nCompartir mazos públicamente con la comunidad.\n\n## Funcionalidades\n- Toggle is_public\n- Explorar decks públicos\n- Clonar deck ajeno\n\n## Implementación\nPublicDecksScreen + sistema de likes/views.\n\n## ✅ Checklist\n- [ ] Añadir columnas views, clones, likes\n- [ ] Implementar publishDeck, getPublicDecks\n- [ ] Crear PublicDecksScreen\n- [ ] Crear RPC functions en Supabase\n- [ ] Testing de permisos"
+        },
+        {
+          "name": "Exportar deck",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 4-6 horas\n\n## Objetivo\nExportar mazos a texto/JSON/imagen.\n\n## Formatos\n- Texto (decklist)\n- JSON\n- URL compartible\n\n## Implementación\nMétodos exportDeckText(), exportDeckJSON() + Share API.\n\n## ✅ Checklist\n- [ ] Implementar exportDeckText()\n- [ ] Implementar exportDeckJSON()\n- [ ] Añadir botón de exportar\n- [ ] Crear ActionSheet con opciones\n- [ ] Testing en iOS y Android"
+        }
+      ]
+    },
+    {
+      "name": "API_MKM",
+      "cards": [
+        {
+          "name": "Actualizar scrapper",
+          "desc": "**Prioridad:** 🔴 Alta\n**Estimación:** 8-12 horas\n\n## Problema\nCloudflare ha cambiado detección de bots. El scrapper actual no funciona.\n\n## Soluciones Posibles\n1. **Puppeteer con stealth plugin**\n2. **Playwright con bypass de Cloudflare**\n3. **Servicio proxy rotativo** (ScraperAPI, Bright Data)\n4. **API oficial de Cardmarket** (requiere aprobación)\n\n## Implementación Recomendada\n```javascript\n// scripts/scraper_mkm.js\nconst { chromium } = require('playwright-extra');\nconst stealth = require('puppeteer-extra-plugin-stealth')();\n\nasync function scrapeMKM(cardCode) {\n  const browser = await chromium.launch({\n    headless: true,\n    args: ['--disable-blink-features=AutomationControlled']\n  });\n  \n  const page = await browser.newPage();\n  \n  // Setear headers realistas\n  await page.setExtraHTTPHeaders({\n    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...',\n    'Accept-Language': 'en-US,en;q=0.9'\n  });\n  \n  const url = `https://www.cardmarket.com/en/OnePiece/Products/Singles/${cardCode}`;\n  await page.goto(url, { waitUntil: 'networkidle' });\n  \n  // Esperar bypass de Cloudflare\n  await page.waitForSelector('.price-container', { timeout: 15000 });\n  \n  const price = await page.$eval('.price', el => el.textContent);\n  \n  await browser.close();\n  return parseFloat(price);\n}\n```\n\n## Alternativa con Servicio Proxy\n```javascript\nconst axios = require('axios');\n\nasync function scrapeMKMWithProxy(cardCode) {\n  const response = await axios.get('http://api.scraperapi.com', {\n    params: {\n      api_key: 'TU_API_KEY',\n      url: `https://www.cardmarket.com/en/OnePiece/Products/Singles/${cardCode}`,\n      render: true // JavaScript rendering\n    }\n  });\n  \n  // Parsear HTML con cheerio\n  const $ = cheerio.load(response.data);\n  const price = $('.price').text();\n  return parseFloat(price);\n}\n```\n\n## Costo Estimado\n- ScraperAPI: $49/mes (10,000 requests)\n- Bright Data: $500/mes (más robusto)\n- Playwright self-hosted: $0 (puede bloquearse)\n\n## ✅ Checklist\n- [ ] Investigar detección actual de Cloudflare\n- [ ] Evaluar Playwright vs Puppeteer vs Proxy service\n- [ ] Implementar solución elegida\n- [ ] Testing con 10-20 cartas\n- [ ] Añadir retry logic y error handling\n- [ ] Implementar rate limiting (evitar ban)\n- [ ] Documentar headers y configuración\n- [ ] Evaluar costos vs beneficio"
+        },
+        {
+          "name": "Añadir llamadas a la api desde el front",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 4-6 horas\n\n## Objetivo\nPermitir actualizar precios de cartas desde la app (botón \"Actualizar precio\").\n\n## Arquitectura\n```\nFrontend (React Native)\n    ↓ HTTP Request\nSupabase Edge Function\n    ↓ Llama a\nScrapper Script / API MKM\n    ↓ Retorna precio\nActualiza BD → Frontend\n```\n\n## Implementación\n\n### Edge Function (Supabase)\n```typescript\n// supabase/functions/fetch-card-price/index.ts\nimport { serve } from 'https://deno.land/std@0.168.0/http/server.ts';\nimport { createClient } from 'https://esm.sh/@supabase/supabase-js@2';\n\nserve(async (req) => {\n  const { cardCode } = await req.json();\n  \n  // Llamar al scrapper (puede estar en otro servicio)\n  const price = await scrapeMKM(cardCode);\n  \n  // Actualizar BD\n  const supabase = createClient(\n    Deno.env.get('SUPABASE_URL')!,\n    Deno.env.get('SUPABASE_SERVICE_KEY')!\n  );\n  \n  await supabase\n    .from('cards')\n    .update({ \n      market_price_eur: price,\n      updated_at: new Date().toISOString()\n    })\n    .eq('code', cardCode);\n  \n  return new Response(JSON.stringify({ price }), {\n    headers: { 'Content-Type': 'application/json' }\n  });\n});\n```\n\n### Frontend Service\n```typescript\n// services/priceService.ts\nexport const priceService = {\n  async updateCardPrice(cardCode: string) {\n    const { data, error } = await supabase.functions.invoke('fetch-card-price', {\n      body: { cardCode }\n    });\n    \n    if (error) throw error;\n    return data.price;\n  },\n  \n  async getLatestPrice(cardCode: string) {\n    const { data } = await supabase\n      .from('cards')\n      .select('market_price_eur, updated_at')\n      .eq('code', cardCode)\n      .single();\n    \n    // Si el precio tiene más de 24h, actualizarlo\n    const lastUpdate = new Date(data.updated_at);\n    const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);\n    \n    if (hoursSinceUpdate > 24) {\n      return await this.updateCardPrice(cardCode);\n    }\n    \n    return data.market_price_eur;\n  }\n};\n```\n\n### UI Component\n```typescript\n// screens/CardDetailScreen.tsx\nconst [updating, setUpdating] = useState(false);\n\nconst handleUpdatePrice = async () => {\n  setUpdating(true);\n  try {\n    const newPrice = await priceService.updateCardPrice(card.code);\n    setCard(prev => ({ ...prev, market_price_eur: newPrice }));\n    Alert.alert('Precio actualizado', `€${newPrice.toFixed(2)}`);\n  } catch (error) {\n    Alert.alert('Error', 'No se pudo actualizar el precio');\n  } finally {\n    setUpdating(false);\n  }\n};\n\n<Button \n  title={updating ? \"Actualizando...\" : \"Actualizar Precio\"}\n  onPress={handleUpdatePrice}\n  disabled={updating}\n/>\n```\n\n## Rate Limiting\n```typescript\n// Límite: 1 actualización por carta cada 6 horas\nconst RATE_LIMIT_HOURS = 6;\n\n// En Edge Function\nconst { data: lastUpdate } = await supabase\n  .from('price_updates')\n  .select('updated_at')\n  .eq('card_code', cardCode)\n  .order('updated_at', { ascending: false })\n  .limit(1)\n  .single();\n\nif (lastUpdate) {\n  const hoursSince = (Date.now() - new Date(lastUpdate.updated_at)) / (1000 * 60 * 60);\n  if (hoursSince < RATE_LIMIT_HOURS) {\n    return new Response(\n      JSON.stringify({ error: 'Rate limit exceeded' }),\n      { status: 429 }\n    );\n  }\n}\n```\n\n## ✅ Checklist\n- [ ] Crear Edge Function en Supabase\n- [ ] Implementar priceService en frontend\n- [ ] Añadir botón actualizar en CardDetailScreen\n- [ ] Implementar rate limiting\n- [ ] Añadir loading states\n- [ ] Testing con varias cartas\n- [ ] Gestionar errores (carta no encontrada, timeout)\n- [ ] Documentar límites de uso"
+        },
+        {
+          "name": "Crear script que obtenga el precio de todas las cartas y los setee en nuestra bbdd, configurar para que se repita todas las mañanas",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 6-8 horas\n\n## Objetivo\nActualización automática masiva de precios mediante cron job.\n\n## Arquitectura\n```\nCron Job (GitHub Actions / Supabase Cron)\n    ↓ Cada día 6:00 AM\nScript update_all_prices.js\n    ↓ Query BD\nObtener todas las cartas\n    ↓ Batch de 10 cartas\nScrapper → API MKM\n    ↓ Actualizar precios\nSupabase BD\n```\n\n## Implementación\n\n### Script Principal\n```javascript\n// scripts/update_all_prices.js\nconst { createClient } = require('@supabase/supabase-js');\nconst pLimit = require('p-limit');\n\nconst supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);\nconst limit = pLimit(5); // Máximo 5 requests concurrentes\n\nasync function updateAllPrices() {\n  console.log('🚀 Iniciando actualización de precios...');\n  \n  // 1. Obtener todas las cartas\n  const { data: cards } = await supabase\n    .from('cards')\n    .select('id, code, variant')\n    .order('updated_at', { ascending: true }) // Las más antiguas primero\n    .limit(500); // Actualizar 500 cartas por día\n  \n  console.log(`📊 Total cartas a actualizar: ${cards.length}`);\n  \n  let updated = 0;\n  let errors = 0;\n  \n  // 2. Actualizar en batches con rate limiting\n  const promises = cards.map((card, idx) => \n    limit(async () => {\n      try {\n        // Delay entre requests (evitar ban)\n        await new Promise(resolve => setTimeout(resolve, idx * 200));\n        \n        const price = await scrapeMKM(card.code);\n        \n        await supabase\n          .from('cards')\n          .update({ \n            market_price_eur: price,\n            updated_at: new Date().toISOString()\n          })\n          .eq('id', card.id);\n        \n        updated++;\n        if (updated % 50 === 0) {\n          console.log(`✅ Actualizadas: ${updated}/${cards.length}`);\n        }\n      } catch (error) {\n        errors++;\n        console.error(`❌ Error en ${card.code}: ${error.message}`);\n      }\n    })\n  );\n  \n  await Promise.all(promises);\n  \n  console.log(`\\n📈 Resumen:\n    ✅ Actualizadas: ${updated}\n    ❌ Errores: ${errors}\n    ⏱️  Tiempo total: ${(Date.now() - startTime) / 1000}s\n  `);\n  \n  // 3. Guardar log en BD\n  await supabase.from('price_update_logs').insert({\n    total_cards: cards.length,\n    updated: updated,\n    errors: errors,\n    executed_at: new Date().toISOString()\n  });\n}\n\nupdateAllPrices();\n```\n\n### Configuración Cron con GitHub Actions\n```yaml\n# .github/workflows/update-prices.yml\nname: Update Card Prices\n\non:\n  schedule:\n    - cron: '0 6 * * *'  # Cada día a las 6:00 AM UTC\n  workflow_dispatch:  # Permite ejecución manual\n\njobs:\n  update-prices:\n    runs-on: ubuntu-latest\n    \n    steps:\n      - uses: actions/checkout@v3\n      \n      - name: Setup Node.js\n        uses: actions/setup-node@v3\n        with:\n          node-version: '20'\n      \n      - name: Install dependencies\n        run: |\n          cd scripts\n          npm install\n      \n      - name: Update prices\n        env:\n          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}\n        run: node scripts/update_all_prices.js\n      \n      - name: Notify completion\n        if: always()\n        uses: actions/github-script@v6\n        with:\n          script: |\n            console.log('Price update completed');\n```\n\n### Alternativa: Supabase Edge Function + pg_cron\n```sql\n-- Habilitar pg_cron en Supabase\nCREATE EXTENSION IF NOT EXISTS pg_cron;\n\n-- Crear función que llama al Edge Function\nCREATE OR REPLACE FUNCTION trigger_price_update()\nRETURNS void AS $$\nBEGIN\n  PERFORM net.http_post(\n    url := 'https://YOUR_PROJECT.supabase.co/functions/v1/update-all-prices',\n    headers := '{\"Authorization\": \"Bearer YOUR_ANON_KEY\"}'::jsonb\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\n-- Programar ejecución diaria a las 6 AM\nSELECT cron.schedule(\n  'update-card-prices',\n  '0 6 * * *',\n  'SELECT trigger_price_update();'\n);\n```\n\n## Optimizaciones\n\n### Actualización Inteligente\n```javascript\n// Solo actualizar cartas con movimiento de precio reciente\nconst { data: cards } = await supabase\n  .from('cards')\n  .select('*')\n  .or('rarity.in.(SR,SEC,SP),market_price_eur.gte.10') // Solo cartas valiosas\n  .order('updated_at', { ascending: true });\n```\n\n### Caché de Precios\n```javascript\n// Guardar histórico de precios\nawait supabase.from('price_history').insert({\n  card_id: card.id,\n  price_eur: newPrice,\n  recorded_at: new Date()\n});\n```\n\n## Monitoreo\n```javascript\n// Crear tabla de logs\nCREATE TABLE price_update_logs (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  total_cards integer,\n  updated integer,\n  errors integer,\n  avg_duration_ms integer,\n  executed_at timestamp DEFAULT now()\n);\n```\n\n## ✅ Checklist\n- [ ] Crear script update_all_prices.js\n- [ ] Implementar rate limiting (5 concurrent max)\n- [ ] Configurar GitHub Actions workflow\n- [ ] Añadir tabla price_update_logs\n- [ ] Testing en modo dry-run\n- [ ] Ejecutar primera actualización masiva\n- [ ] Configurar alertas por email si hay errores\n- [ ] Documentar costos de scraping\n- [ ] Optimizar: solo actualizar cartas valiosas"
+        }
+      ]
+    },
+    {
+      "name": "Graficos",
+      "cards": [
+        {
+          "name": "Añadir sección de mazos",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 10-12 horas\n\n## Objetivo\nPantalla para explorar mazos populares e importarlos.\n\n## Funcionalidades\n- Buscar mazos meta (más usados)\n- Ver cartas del mazo\n- Indicar cartas faltantes (sombreado)\n- Importar a tu colección\n\n## Implementación\nIntegración con API de Limitless TCG o base de datos propia de mazos públicos.\n\n## ✅ Checklist\n- [ ] Diseñar UI de exploración de mazos\n- [ ] Integrar API de mazos meta (Limitless/OPTD)\n- [ ] Crear componente DeckPreview\n- [ ] Implementar indicador de cartas faltantes\n- [ ] Añadir botón importar\n- [ ] Testing de importación"
+        },
+        {
+          "name": "Animación llamativa al scanear una carta",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 4-6 horas\n\n## Objetivo\nFeedback visual mejorado al escanear cartas.\n\n## Ideas\n- Confetti explosion (react-native-confetti)\n- Partículas doradas (Lottie animation)\n- Shake + glow effect\n- Sonido de éxito\n\n## Implementación\nUsar react-native-reanimated + lottie-react-native.\n\n## ✅ Checklist\n- [ ] Diseñar/obtener animación Lottie\n- [ ] Integrar react-native-lottie\n- [ ] Añadir sonido de éxito\n- [ ] Implementar shake animation\n- [ ] Testing en dispositivos\n- [ ] Configuración on/off en settings"
+        }
+      ]
+    },
+    {
+      "name": "Mejoras",
+      "cards": [
+        {
+          "name": "Añadir publicidad",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 6-8 horas\n\n## Objetivo\nMonetización mediante anuncios (usuarios free).\n\n## Plataforma\nGoogle AdMob (React Native)\n\n## Tipos de Anuncios\n- Banner (bottom de pantalla)\n- Interstitial (entre escaneos cada X cartas)\n- Rewarded (ver anuncio → desbloquear feature)\n\n## Implementación\n```bash\nnpm install react-native-google-mobile-ads\n```\n\n## ✅ Checklist\n- [ ] Crear cuenta Google AdMob\n- [ ] Instalar react-native-google-mobile-ads\n- [ ] Configurar Ad Units (iOS/Android)\n- [ ] Implementar Banner en CollectionScreen\n- [ ] Implementar Interstitial cada 10 escaneos\n- [ ] Testing con test IDs\n- [ ] Publicar y obtener real Ad Units"
+        },
+        {
+          "name": "Plantear sistema de compras",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 12-16 horas\n\n## Objetivo\nIn-App Purchases para tier PRO.\n\n## Features PRO\n- Sin publicidad\n- Exportación ilimitada\n- Estadísticas avanzadas\n- Backup en la nube\n- Soporte prioritario\n\n## Precio\n- Mensual: €2.99\n- Anual: €24.99 (30% descuento)\n\n## Implementación\nreact-native-iap + Supabase para validación.\n\n## ✅ Checklist\n- [ ] Configurar productos en App Store Connect\n- [ ] Configurar productos en Google Play Console\n- [ ] Instalar react-native-iap\n- [ ] Implementar purchase flow\n- [ ] Validar receipts en Supabase\n- [ ] Actualizar subscription_tier en BD\n- [ ] Implementar restore purchases\n- [ ] Testing con sandbox"
+        },
+        {
+          "name": "Comunidad",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 20-30 horas\n\n## Objetivo\nSección social: publicar pulls, comentar, likes.\n\n## Features\n- Feed de actividad (pulls recientes)\n- Comentarios y likes\n- Compartir en redes sociales\n- Achievements/badges\n\n## Complejidad\nAlta - requiere sistema de posts, comentarios, notificaciones.\n\n## ✅ Checklist\n- [ ] Diseñar modelo de datos (posts, comments, likes)\n- [ ] Crear FeedScreen\n- [ ] Implementar sistema de posts\n- [ ] Añadir comentarios\n- [ ] Sistema de notificaciones push\n- [ ] Implementar badges/achievements\n- [ ] Moderación de contenido"
+        },
+        {
+          "name": "Encuentra tu tienda",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 8-10 horas\n\n## Objetivo\nMapa con tiendas de TCG cercanas.\n\n## Features\n- Geolocalización\n- Mapa con marcadores\n- Información de tienda (horario, teléfono)\n- Navegación (Google Maps/Apple Maps)\n\n## Implementación\nreact-native-maps + base de datos de tiendas (Google Places API).\n\n## ✅ Checklist\n- [ ] Instalar react-native-maps\n- [ ] Obtener API key de Google Maps\n- [ ] Implementar geolocalización\n- [ ] Integrar Google Places API\n- [ ] Crear StoreMapScreen\n- [ ] Añadir detalles de tienda\n- [ ] Testing de navegación"
+        },
+        {
+          "name": "Torneos",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 30-40 horas\n\n## Objetivo\nSistema completo de gestión de torneos.\n\n## Features\n- Crear torneo (TO)\n- Inscribirse\n- Brackets/pairings\n- Registro de resultados\n- Rankings\n\n## Complejidad\nMuy alta - requiere sistema de emparejamiento, validaciones complejas.\n\n## ✅ Checklist\n- [ ] Diseñar modelo de datos complejo\n- [ ] Crear TournamentsScreen\n- [ ] Implementar sistema de brackets\n- [ ] Sistema de pairings (Swiss/Single Elimination)\n- [ ] Registro de resultados\n- [ ] Rankings y estadísticas\n- [ ] Testing extensivo"
+        },
+        {
+          "name": "Implementar scanner para otros tcgs",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 40-60 horas\n\n## Objetivo\nSoportar múltiples TCGs (Magic, Pokémon, Yu-Gi-Oh!).\n\n## Desafíos\n- Cada TCG tiene formato de código diferente\n- Múltiples catálogos de cartas\n- APIs diferentes para precios\n- UI multi-juego\n\n## Implementación\nSistema de \"juegos\" con parser configurable por juego.\n\n## ✅ Checklist\n- [ ] Diseñar arquitectura multi-TCG\n- [ ] Crear tabla 'games'\n- [ ] Parsers específicos por juego\n- [ ] Importar catálogos (MTG, Pokémon, YGO)\n- [ ] Adaptar UI para multi-juego\n- [ ] Testing con cada TCG\n- [ ] Documentar cada juego"
+        }
+      ]
+    },
+    {
+      "name": "Colección",
+      "cards": [
+        {
+          "name": "Añadir Dones (manualmente)",
+          "desc": "**Prioridad:** 🟢 Baja\n**Estimación:** 2-3 horas\n\n## Objetivo\nPermitir gestionar cartas DON!! del juego.\n\n## Contexto\nEn One Piece TCG, cada jugador tiene 10 cartas DON!! que no van en el deck.\n\n## Implementación\nAñadir sección especial \"DON Cards\" con contador (0-10).\n\n## ✅ Checklist\n- [ ] Añadir campo don_count a profiles\n- [ ] Crear componente DonCounter\n- [ ] Añadir en ProfileScreen o CollectionScreen\n- [ ] Persistir en BD\n- [ ] Testing"
+        }
+      ]
+    },
+    {
+      "name": "No queremos pero no hay mas remedio",
+      "cards": [
+        {
+          "name": "Documentación",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 8-12 horas\n\n## Objetivo\nDocumentación completa del proyecto para desarrolladores.\n\n## Contenido\n- README.md completo\n- Guía de instalación\n- Arquitectura del sistema\n- API documentation\n- Contributing guidelines\n- Changelog\n\n## Herramientas\n- Docusaurus (site documentation)\n- JSDoc para código\n- Swagger/OpenAPI para API\n\n## ✅ Checklist\n- [ ] Crear README.md detallado\n- [ ] Documentar instalación paso a paso\n- [ ] Diagrams de arquitectura (draw.io)\n- [ ] Documentar API endpoints\n- [ ] Crear CONTRIBUTING.md\n- [ ] Setup Docusaurus (opcional)\n- [ ] Mantener CHANGELOG.md"
+        },
+        {
+          "name": "Pruebas",
+          "desc": "**Prioridad:** 🟡 Media\n**Estimación:** 20-30 horas\n\n## Objetivo\nSuite completa de tests automatizados.\n\n## Tipos de Tests\n1. **Unit Tests** (Jest)\n2. **Integration Tests** (Testing Library)\n3. **E2E Tests** (Detox)\n\n## Coverage Objetivo\nMínimo 70% de cobertura en lógica de negocio.\n\n## Implementación\n```bash\nnpm install --save-dev @testing-library/react-native jest\n```\n\n## ✅ Checklist\n- [ ] Setup Jest + Testing Library\n- [ ] Tests para utils (cardCodeParser)\n- [ ] Tests para services (supabaseService)\n- [ ] Tests para hooks (useCardScanner)\n- [ ] Tests de componentes críticos\n- [ ] Setup Detox para E2E\n- [ ] CI/CD con tests automáticos\n- [ ] Coverage reports"
+        },
+        {
+          "name": "Correo a mkm a ver si nos dejan usar la api",
+          "desc": "**Prioridad:** 🔴 Alta\n**Estimación:** 1 hora\n\n## Objetivo\nSolicitar acceso oficial a API de Cardmarket.\n\n## Email Template\n```\nSubject: API Access Request - OPSCANNER TCG App\n\nDear Cardmarket Team,\n\nI am the developer of OPSCANNER, a mobile application for One Piece TCG \ncollectors. Our app helps users manage their card collections and would \ngreatly benefit from access to your official API for real-time pricing data.\n\nApp details:\n- Platform: iOS/Android (React Native)\n- Users: [X] active users\n- Purpose: Collection management + price tracking\n- Frequency: ~500 requests/day\n\nWe are committed to:\n- Following your API rate limits\n- Proper attribution to Cardmarket\n- Not competing with your marketplace\n\nCould we discuss API access terms?\n\nBest regards,\n[Your name]\n```\n\n## Follow-up\nSi no responden en 2 semanas, usar soluciones alternativas (scrapping).\n\n## ✅ Checklist\n- [ ] Preparar email profesional\n- [ ] Incluir screenshots de la app\n- [ ] Mencionar número de usuarios\n- [ ] Enviar a partnerships@cardmarket.com\n- [ ] Follow-up después de 1 semana\n- [ ] Si rechazan: implementar scrapper robusto"
+        }
+      ]
+    }
+  ]
+}

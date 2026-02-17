@@ -21,24 +21,24 @@ export interface CollectionItem {
   };
 }
 
-// 1. CORRECCIÓN: Metemos updateQuantity DENTRO del tipo
 type CollectionContextType = {
   collection: CollectionItem[];
   loading: boolean;
   refresh: () => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
-  updateQuantity: (id: string, newQuantity: number) => Promise<void>; // <--- AQUI
+  updateQuantity: (id: string, newQuantity: number) => Promise<void>;
   stats: { totalCards: number; uniqueCards: number; altArts: number };
+  addCard: (code: string, isFoil?: boolean) => Promise<{ success: boolean; message?: string }>;
 };
 
-// 2. CORRECCIÓN: Añadimos el placeholder en el defaultValue
 const CollectionContext = createContext<CollectionContextType>({
   collection: [],
   loading: false,
-  refresh: async () => {},
-  deleteCard: async () => {},
-  updateQuantity: async () => {}, 
-  stats: { totalCards: 0, uniqueCards: 0, altArts: 0 }
+  refresh: async () => { },
+  deleteCard: async () => { },
+  updateQuantity: async () => { },
+  stats: { totalCards: 0, uniqueCards: 0, altArts: 0 },
+  addCard: async () => ({ success: false, message: 'Función no implementada' })
 });
 
 export const CollectionProvider = ({ children }: { children: React.ReactNode }) => {
@@ -77,25 +77,39 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
     }
   };
 
-  // 3. CORRECCIÓN: Implementamos la lógica real
   const updateQuantity = async (id: string, newQuantity: number) => {
-    // Actualización Optimista (UI primero)
     setCollection(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, quantity: newQuantity };
-      }
+      if (item.id === id) return { ...item, quantity: newQuantity };
       return item;
     }));
 
-    // Llamada a Supabase
-    // Nota: Si baja a 0, supabaseService ya maneja el borrado, 
-    // pero visualmente aquí podríamos filtrar si quantity <= 0
     if (newQuantity <= 0) {
-        // Si es 0, la quitamos de la lista visualmente también
-        setCollection(prev => prev.filter(item => item.id !== id));
+      setCollection(prev => prev.filter(item => item.id !== id));
     }
 
     await supabaseService.updateCardQuantity(id, newQuantity);
+  };
+
+  // Esta es la función que estabas definiendo pero no compartías
+  const addCard = async (code: string, isFoil: boolean = false) => {
+    if (!user) return { success: false, message: 'Usuario no autenticado' };
+
+    try {
+      setLoading(true);
+      const result = await supabaseService.addCardToCollection(user.id, code, isFoil);
+
+      if (result.success) {
+        await loadData(); // Recargamos usando loadData que es tu función interna
+        return { success: true, message: 'Carta añadida' };
+      } else {
+        return { success: false, message: result.error || 'Error al añadir' };
+      }
+
+    } catch (e) {
+      return { success: false, message: 'Error de conexión' };
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -113,15 +127,15 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    // 4. CORRECCIÓN: Pasamos la función al Provider
-    <CollectionContext.Provider 
-      value={{ 
-        collection, 
-        loading, 
-        refresh: loadData, 
-        deleteCard, 
-        updateQuantity, // <--- AQUI
-        stats 
+    <CollectionContext.Provider
+      value={{
+        collection,
+        loading,
+        refresh: loadData,
+        deleteCard,
+        updateQuantity,
+        stats,
+        addCard, // <--- 🚨 ESTO ES LO QUE FALTABA 🚨
       }}
     >
       {children}
