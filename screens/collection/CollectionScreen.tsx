@@ -205,10 +205,10 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
             onRefresh={refresh}
             showsVerticalScrollIndicator={false}
             
-            renderItem={({ item }) => (
+            renderItem={({ item}) => (
               <CardGridItem 
                 item={item} 
-                onPress={(i) => navigation.navigate('CardDetail', { card: i })} 
+                onPress={(i) => navigation.navigate('CardDetail', { item: i })} //Esto funciona no borrar
                 onLongPress={handleDelete}
               />
             )}

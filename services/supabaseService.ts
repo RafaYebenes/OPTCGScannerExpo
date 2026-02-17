@@ -155,5 +155,30 @@ export const supabaseService = {
       console.error('Error actualizando cantidad:', error);
       return false;
     }
+  },
+
+  // --- Obtener carta base por código ---
+  async getBaseCardByCode(rawCode: string) {
+    try {
+      const cardCode = rawCode.trim().toUpperCase();
+      
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('code', cardCode)
+        .eq('variant', 'Normal')
+        .maybeSingle(); // Trae el primer resultado o null si no existe
+
+      if (error) throw error;
+      
+      if (!data) {
+        console.warn(`⚠️ No se encontró carta base con código: ${cardCode}`);
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('🚨 Error en getBaseCardByCode:', error.message);
+      return null;
+    }
   }
 };

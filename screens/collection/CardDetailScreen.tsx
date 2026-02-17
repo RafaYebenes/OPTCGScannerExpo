@@ -1,5 +1,6 @@
+import { supabaseService } from '@/services/supabaseService';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Dimensions,
@@ -34,6 +35,8 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     // --- PROTECCIÓN CONTRA CRASHES ---
     // Si route.params es undefined, evitamos el error crítico
     const item = route.params?.item;
+    const [fullCardData, setFullCardData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
     if (!item) {
         return (
@@ -50,8 +53,24 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     const { updateQuantity, deleteCard } = useCollection();
     const [qty, setQty] = useState(item.quantity);
 
-    // Datos seguros (por si faltan en DB)
-    const cardData = item.card || {};
+    useEffect(() => {
+        if (item.card) {
+            // Usamos el 'code' para buscar la versión "Normal" y traer todos los campos
+            supabaseService.getBaseCardByCode(item.card.code)
+                .then(card => {
+                    console.log("Datos completos de la carta obtenidos:", card);
+                    if (card) {
+                        setFullCardData(card);
+                    }
+                })
+                .catch(e => console.warn("Error obteniendo datos extendidos:", e))
+                .finally(() => setLoading(false));
+        }
+    }, [item]);
+
+    // Fusionamos datos: prioridad a los datos completos de la DB, 
+    // pero usamos los de item.card mientras cargan
+    const cardData = fullCardData || item.card || {};
     const isAlt = item.is_foil;
 
     // Lógica de botones
@@ -84,6 +103,55 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
         // Ejemplo placeholder:
         const searchUrl = `https://www.cardmarket.com/en/OnePiece/Products/Search?searchString=${cardData.code}`;
         Linking.openURL(searchUrl);
+    };
+
+
+    const renderFormattedEffect = (text: string) => {
+        if (!text) return <Text style={styles.effectText}>Sin descripción.</Text>;
+
+        const cleanText = text.replace(/<br\s*\/?>/gi, '\n\n');
+        const parts = cleanText.split(/(\[[^\]]+\]|\([^)]+\))/g);
+
+        return (
+            <Text style={styles.effectText}>
+                {parts.map((part, index) => {
+                    if (part.startsWith('[') && part.endsWith(']')) {
+                        const innerText = part.slice(1, -1);
+                        let badgeStyle: any = styles.defaultBadge;
+
+                        // --- NUEVA LÓGICA DE COLORES CORREGIDA ---
+                        if (innerText.match(/On Play/i)) badgeStyle = styles.onPlayBadge;
+                        if (innerText.match(/Activate: Main|Main/i)) badgeStyle = styles.activateMainBadge;
+                        if (innerText.match(/Once Per Turn/i)) badgeStyle = styles.oncePerTurnBadge;
+                        if (innerText.match(/Blocker/i)) badgeStyle = styles.blockerBadge;
+                        if (innerText.includes('DON!!')) badgeStyle = styles.donBadge;
+
+                        return (
+                            <View key={index} style={[styles.inlineBadge, badgeStyle]}>
+                                <Text style={styles.badgeText}>{innerText.toUpperCase()}</Text>
+                            </View>
+                        );
+                    }
+
+                    if (part.startsWith('(') && part.endsWith(')')) {
+                        return <Text key={index} style={styles.italicText}>{part}</Text>;
+                    }
+
+                    // Si el fragmento contiene ":" y es el inicio de una frase
+                    if (part.includes(':')) {
+                        const subParts = part.split(/(:)/); // Dividimos manteniendo los ":"
+                        return (
+                            <Text key={index}>
+                                <Text style={styles.boldCondition}>{subParts[0]}{subParts[1]}</Text>
+                                {subParts.slice(2).join('')}
+                            </Text>
+                        );
+                    }
+
+                    return <Text key={index}>{part}</Text>;
+                })}
+            </Text>
+        );
     };
 
     return (
@@ -127,7 +195,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 
                     {/* 2. BLOQUE DE INFORMACIÓN */}
                     <View style={styles.infoCard}>
-
                         {/* Títulos */}
                         <Text style={styles.cardCode}>{cardData.code}</Text>
                         <Text style={styles.cardName}>{cardData.name}</Text>
@@ -135,31 +202,48 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 
                         <View style={styles.divider} />
 
-                        {/* Grid de Specs (Poder, Color, Tipo) */}
-                        {/* Nota: Asumo que tendrás estos campos en DB. Si no, salen vacíos. */}
-                        <View style={styles.specsGrid}>
-                            <View style={styles.specBox}>
-                                <Text style={styles.specLabel}>COLOR</Text>
-                                <Text style={styles.specValue}>{cardData.color || '-'}</Text>
+                        {/* SECCIÓN DE SPECS REDISEÑADA */}
+                        <View style={styles.specsContainer}>
+                            {/* Fila 1: Type (Feature) - Ocupa más espacio porque suele ser largo */}
+                            <View style={styles.fullWidthSpec}>
+                                <Text style={styles.specLabel}>TYPE</Text>
+                                <View style={styles.typeBadgeContainer}>
+                                    {cardData.feature ? (
+                                        cardData.feature.split('/').map((type: string, index: number) => (
+                                            <View key={index} style={styles.typeBadge}>
+                                                <Text style={styles.typeBadgeText}>{type.trim()}</Text>
+                                            </View>
+                                        ))
+                                    ) : (
+                                        <Text style={styles.specValue}>-</Text>
+                                    )}
+                                </View>
                             </View>
-                            <View style={styles.specBox}>
-                                <Text style={styles.specLabel}>PODER</Text>
-                                <Text style={styles.specValue}>{cardData.power || '-'}</Text>
-                            </View>
-                            <View style={styles.specBox}>
-                                <Text style={styles.specLabel}>TIPO</Text>
-                                <Text style={styles.specValue}>{cardData.type || '-'}</Text>
+
+                            {/* Fila 2: Chips de especificaciones rápidas */}
+                            <View style={styles.specsChipsRow}>
+                                <View style={styles.specChip}>
+                                    <Text style={styles.specLabel}>COLOR</Text>
+                                    <Text style={styles.specValue}>{cardData.color || '-'}</Text>
+                                </View>
+                                <View style={styles.specChip}>
+                                    <Text style={styles.specLabel}>POWER</Text>
+                                    <Text style={styles.specValue}>{cardData.power || '-'}</Text>
+                                </View>
+                                <View style={styles.specChip}>
+                                    <Text style={styles.specLabel}>CLASS</Text>
+                                    <Text style={styles.specValue}>{cardData.type || '-'}</Text>
+                                </View>
                             </View>
                         </View>
 
                         {/* Efecto de la Carta */}
                         <View style={styles.effectContainer}>
                             <Text style={styles.specLabel}>EFECTO</Text>
-                            <Text style={styles.effectText}>
-                                {cardData.effect_text || "Sin descripción de efecto disponible en la base de datos."}
-                            </Text>
+                            <View style={styles.effectTextWrapper}>
+                                {renderFormattedEffect(cardData.effect)}
+                            </View>
                         </View>
-
                     </View>
                 </ScrollView>
 
@@ -207,6 +291,83 @@ const styles = StyleSheet.create({
     backButton: { padding: 8 },
     backText: { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
 
+    specsContainer: {
+        marginBottom: 20,
+    },
+    fullWidthSpec: {
+        backgroundColor: 'rgba(253, 240, 213, 0.05)',
+        padding: 10,
+        borderRadius: 8,
+        marginBottom: 10,
+        borderLeftWidth: 2,
+        borderLeftColor: THEME.gold,
+    },
+    specsChipsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    specChip: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        borderRadius: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(253, 240, 213, 0.1)',
+    },
+    specLabel: {
+        color: 'rgba(253, 240, 213, 0.4)',
+        fontSize: 9,
+        fontWeight: '700',
+        marginBottom: 2,
+        textTransform: 'uppercase'
+    },
+    specValue: {
+        color: THEME.cream,
+        fontSize: 12,
+        fontWeight: 'bold',
+        textAlign: 'center'
+    },
+
+    fullWidthSpec: {
+        backgroundColor: 'rgba(253, 240, 213, 0.05)',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 10,
+        borderLeftWidth: 3,
+        borderLeftColor: THEME.gold,
+    },
+    typeBadgeContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap', // Para que si hay muchos tipos, bajen a la siguiente línea
+        gap: 6,
+        marginTop: 4,
+    },
+    typeBadge: {
+        backgroundColor: '#0f4970',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(253, 240, 213, 0.2)',
+    },
+    typeBadgeText: {
+        color: THEME.cream,
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+
+    // Ajuste al divider para que no pegue tanto
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(253, 240, 213, 0.1)',
+        marginVertical: 15
+    },
+
     // IMAGEN
     imageContainer: { alignItems: 'center', marginTop: 10, marginBottom: 20 },
     cardImage: {
@@ -242,16 +403,12 @@ const styles = StyleSheet.create({
     cardName: { color: THEME.cream, fontSize: 24, fontWeight: '900', textAlign: 'center', marginVertical: 4, textTransform: 'uppercase' },
     setName: { color: 'rgba(253, 240, 213, 0.6)', fontSize: 12, fontWeight: '600', textAlign: 'center', letterSpacing: 1 },
 
-    divider: { height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)', marginVertical: 20 },
 
     // GRID SPECS
     specsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
     specBox: { alignItems: 'center', flex: 1 },
-    specLabel: { color: 'rgba(253, 240, 213, 0.4)', fontSize: 9, fontWeight: '700', marginBottom: 4 },
-    specValue: { color: THEME.cream, fontSize: 14, fontWeight: 'bold' },
 
     effectContainer: { backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 },
-    effectText: { color: THEME.cream, fontSize: 13, lineHeight: 20, opacity: 0.9, marginTop: 4 },
 
     // FOOTER
     footer: {
@@ -278,4 +435,54 @@ const styles = StyleSheet.create({
     qtyBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
     qtyBtnText: { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
     qtyValue: { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
+
+    // ... dentro de StyleSheet.create
+    effectText: {
+        color: THEME.cream,
+        fontSize: 14,
+        lineHeight: 24, // Altura de línea para que los badges respiren
+        textAlign: 'left',
+        opacity: 0.9, marginTop: 4
+    },
+    inlineBadge: {
+        paddingHorizontal: 5,
+        height: 16,               // Altura compacta para no sobresalir del texto
+        borderRadius: 2,
+        marginHorizontal: 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        // --- AJUSTE DE ALINEACIÓN VERTICAL ---
+        position: 'relative',
+        top: 3,                   // Lo baja justo al centro del texto
+        marginBottom: -3,
+    },
+    badgeText: {
+        fontSize: 9,
+        fontWeight: '900',
+        color: '#FFF',
+        includeFontPadding: false,
+        textAlignVertical: 'center',
+        lineHeight: 10,           // Centrado interno del texto en el badge
+    },
+
+    // --- PALETA CORREGIDA ---
+    defaultBadge: { backgroundColor: '#0071bc' },
+    onPlayBadge: { backgroundColor: '#0071bc' },      // Azul On Play
+    activateMainBadge: { backgroundColor: '#0084bd' }, // Azul/Cian Main
+    oncePerTurnBadge: { backgroundColor: '#e60012' },  // Rojo/Rosa Once Per Turn
+    blockerBadge: { backgroundColor: '#ca601e' },      // Naranja Blocker
+    donBadge: {
+        backgroundColor: '#000',
+        borderWidth: 1,
+        borderColor: THEME.gold
+    },
+
+    italicText: {
+        color: 'rgba(253, 240, 213, 0.5)',
+        fontStyle: 'italic',
+    },
+
+    boldCondition: {
+        fontWeight: 'bold',        
+    },
 });
