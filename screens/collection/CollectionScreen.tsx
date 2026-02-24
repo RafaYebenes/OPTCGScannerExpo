@@ -1,25 +1,43 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // COMPONENTES & CONTEXTOS
-import { CardGridItem } from '../../components/collection/CardGridItem';
-import { CollectionHeader } from '../../components/collection/CollectionHeader';
-import { FilterModal } from '../../components/collection/FilterModal';
-import { useCollection } from '../../context/CollectionContext';
-import { CollectionScreenProps } from '../../types/navigation.types';
-import { PALETTE, SPACING } from '../../utils/theme';
+import { CardGridItem } from "../../components/collection/CardGridItem";
+import { CollectionHeader } from "../../components/collection/CollectionHeader";
+import { FilterModal } from "../../components/collection/FilterModal";
+import { useCollection } from "../../context/CollectionContext";
+import { CollectionScreenProps } from "../../types/navigation.types";
+import { PALETTE, SPACING } from "../../utils/theme";
 
-const AVAILABLE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
+const AVAILABLE_COLORS = ["Red", "Green", "Blue", "Purple", "Black", "Yellow"];
 
-export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }) => {
+export const CollectionScreen: React.FC<CollectionScreenProps> = ({
+  navigation,
+}) => {
   const { collection, stats, loading, refresh, deleteCard } = useCollection();
 
   // ESTADOS
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [activeRarity, setActiveRarity] = useState<string | null>(null);
-  
+
   // MODAL FILTROS
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterColor, setFilterColor] = useState<string | null>(null);
@@ -33,7 +51,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   // --- SOLUCIÓN AL BUCLE INFINITO ---
   // Guardamos la función refresh en una referencia para que no dispare el efecto
   const refreshRef = useRef(refresh);
-  
+
   // Actualizamos la referencia siempre que cambie la función
   useEffect(() => {
     refreshRef.current = refresh;
@@ -44,13 +62,13 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
     useCallback(() => {
       // Llamamos a la versión más reciente de refresh sin añadirla a dependencias
       refreshRef.current();
-    }, []) // Array vacío = Solo se ejecuta al enfocar la pantalla
+    }, []), // Array vacío = Solo se ejecuta al enfocar la pantalla
   );
   // ----------------------------------
 
   // --- LÓGICA DE FILTRADO ---
   const filteredRawCollection = useMemo(() => {
-    return collection.filter(item => {
+    return collection.filter((item) => {
       if (!item.card) return false;
 
       // 1. Texto
@@ -64,25 +82,26 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
       // 2. Rareza
       if (activeRarity) {
-        if (activeRarity === 'AA') {
-            if (!item.is_foil) return false;
+        if (activeRarity === "AA") {
+          if (!item.is_foil) return false;
         } else {
-            const r = item.card.rarity ? item.card.rarity.toUpperCase() : '?';
-            let label = r;
-            if (r === 'LEADER') label = 'L';
-            if (r === 'COMMON') label = 'C';
-            if (r === 'UNCOMMON') label = 'UC';
-            if (r === 'RARE') label = 'R';
-            if (r === 'SUPER RARE') label = 'SR';
-            if (r === 'SECRET RARE') label = 'SEC';
-            if (r === 'PROMO') label = 'P';
-            if (label !== activeRarity) return false;
+          const r = item.card.rarity ? item.card.rarity.toUpperCase() : "?";
+          let label = r;
+          if (r === "LEADER") label = "L";
+          if (r === "COMMON") label = "C";
+          if (r === "UNCOMMON") label = "UC";
+          if (r === "RARE") label = "R";
+          if (r === "SUPER RARE") label = "SR";
+          if (r === "SECRET RARE") label = "SEC";
+          if (r === "PROMO") label = "P";
+          if (label !== activeRarity) return false;
         }
       }
 
       // 3. Color
       if (filterColor) {
-        if (!item.card.color || !item.card.color.includes(filterColor)) return false;
+        if (!item.card.color || !item.card.color.includes(filterColor))
+          return false;
       }
 
       // 4. Set
@@ -104,15 +123,15 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         existing.quantity += 1;
         existing.ids.push(item.id);
       } else {
-        groups.set(key, { 
-            ...item, 
-            code: item.card.code, 
-            name: item.card.name,
-            image: item.card.image_url,
-            parsedSet: item.card.set_code,
-            isAltArt: item.is_foil,
-            quantity: 1, 
-            ids: [item.id] 
+        groups.set(key, {
+          ...item,
+          code: item.card.code,
+          name: item.card.name,
+          image: item.card.image_url,
+          parsedSet: item.card.set_code,
+          isAltArt: item.is_foil,
+          quantity: 1,
+          ids: [item.id],
         });
       }
     });
@@ -122,18 +141,18 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   // --- STATS DE RAREZA ---
   const rarityStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    collection.forEach(item => {
-      const r = item.card?.rarity ? item.card.rarity.toUpperCase() : '?';
+    collection.forEach((item) => {
+      const r = item.card?.rarity ? item.card.rarity.toUpperCase() : "?";
       let label = r;
-      if (r === 'LEADER') label = 'L';
-      if (r === 'COMMON') label = 'C';
-      if (r === 'UNCOMMON') label = 'UC';
-      if (r === 'RARE') label = 'R';
-      if (r === 'SUPER RARE') label = 'SR';
-      if (r === 'SECRET RARE') label = 'SEC';
+      if (r === "LEADER") label = "L";
+      if (r === "COMMON") label = "C";
+      if (r === "UNCOMMON") label = "UC";
+      if (r === "RARE") label = "R";
+      if (r === "SUPER RARE") label = "SR";
+      if (r === "SECRET RARE") label = "SEC";
       counts[label] = (counts[label] || 0) + 1;
     });
-    const sortOrder = ['L', 'C', 'UC', 'R', 'SR', 'SEC', 'P'];
+    const sortOrder = ["L", "C", "UC", "R", "SR", "SEC", "P"];
     return Object.entries(counts).sort((a, b) => {
       const idxA = sortOrder.indexOf(a[0]);
       const idxB = sortOrder.indexOf(b[0]);
@@ -146,34 +165,40 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
   // Sets disponibles
   const availableSets = useMemo(() => {
-      const sets = new Set(collection.map(i => i.card?.set_code).filter(Boolean));
-      return Array.from(sets).sort();
+    const sets = new Set(
+      collection.map((i) => i.card?.set_code).filter(Boolean),
+    );
+    return Array.from(sets).sort();
   }, [collection]);
 
   const handleDelete = (item: any) => {
     const idToDelete = item.ids[item.ids.length - 1];
-    Alert.alert(
-      'Gestionar carta', `¿Retirar ${item.code}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => deleteCard(idToDelete) },
-      ]
-    );
+    Alert.alert("Gestionar carta", `¿Retirar ${item.code}?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: () => deleteCard(idToDelete),
+      },
+    ]);
   };
 
   const clearAllFilters = () => {
     setFilterColor(null);
     setFilterSet(null);
     setActiveRarity(null);
-    setSearchText('');
+    setSearchText("");
     setShowFilterModal(false);
   };
 
   return (
-    <LinearGradient colors={[PALETTE.deepOcean, PALETTE.navy, '#1e4d6b']} style={styles.mainContainer}>
-      <SafeAreaView style={{flex: 1}}>
+    <LinearGradient
+      colors={[PALETTE.deepOcean, PALETTE.navy, "#1e4d6b"]}
+      style={styles.mainContainer}
+    >
+      <SafeAreaView style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
-        
+
         {loading && collection.length === 0 ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={PALETTE.cream} />
@@ -182,14 +207,13 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         ) : (
           <FlatList
             key={3}
-            data={groupedDisplayCollection} 
+            data={groupedDisplayCollection}
             keyExtractor={(item) => item.ids[0]}
             numColumns={3}
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
-            
             ListHeaderComponent={
-              <CollectionHeader 
+              <CollectionHeader
                 stats={stats}
                 searchText={searchText}
                 setSearchText={setSearchText}
@@ -200,33 +224,32 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
                 rarityStats={rarityStats}
               />
             }
-
             refreshing={loading}
             onRefresh={refresh}
             showsVerticalScrollIndicator={false}
-            
-            renderItem={({ item}) => (
-              <CardGridItem 
-                item={item} 
-                onPress={(i) => navigation.navigate('CardDetail', { item: i })} //Esto funciona no borrar
+            renderItem={({ item }) => (
+              <CardGridItem
+                item={item}
+                onPress={(i) => navigation.navigate("CardDetail", { item: i })} //Esto funciona no borrar
                 onLongPress={handleDelete}
               />
             )}
-
             ListEmptyComponent={
               <View style={styles.centerContainer}>
-                <Text style={{fontSize: 40, opacity: 0.5, marginBottom: 10}}>🏴‍☠️</Text>
+                <Text style={{ fontSize: 40, opacity: 0.5, marginBottom: 10 }}>
+                  🏴‍☠️
+                </Text>
                 <Text style={styles.emptyText}>
-                    {searchText || activeRarity || filterColor || filterSet 
-                        ? "No se encontraron cartas con esos filtros" 
-                        : "Sin cartas aún"}
+                  {searchText || activeRarity || filterColor || filterSet
+                    ? "No se encontraron cartas con esos filtros"
+                    : "Sin cartas aún"}
                 </Text>
               </View>
             }
           />
         )}
 
-        <FilterModal 
+        <FilterModal
           visible={showFilterModal}
           onClose={() => setShowFilterModal(false)}
           availableColors={AVAILABLE_COLORS}
@@ -237,17 +260,30 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
           setFilterSet={setFilterSet}
           onClearAll={clearAllFilters}
         />
-
       </SafeAreaView>
     </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, paddingTop: 40},
+  mainContainer: { flex: 1, paddingTop: 40 },
   listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
-  columnWrapper: { justifyContent: 'flex-start', gap: SPACING.gap, marginBottom: SPACING.gap },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
+  columnWrapper: {
+    justifyContent: "flex-start",
+    gap: SPACING.gap,
+    marginBottom: SPACING.gap,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 100,
+  },
   loadingText: { color: PALETTE.cream, marginTop: 10 },
-  emptyText: { color: PALETTE.cream, fontSize: 16, textAlign: 'center', paddingHorizontal: 20 },
+  emptyText: {
+    color: PALETTE.cream,
+    fontSize: 16,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
 });
