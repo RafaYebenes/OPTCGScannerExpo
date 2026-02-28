@@ -12,18 +12,20 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  SafeAreaView,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // COMPONENTES & CONTEXTOS
 import { CardGridItem } from "../../components/collection/CardGridItem";
 import { CollectionHeader } from "../../components/collection/CollectionHeader";
 import { FilterModal } from "../../components/collection/FilterModal";
 import { useCollection } from "../../context/CollectionContext";
+import { deckService } from "../../services/deckService";
 import { CollectionScreenProps } from "../../types/navigation.types";
 import { PALETTE, SPACING } from "../../utils/theme";
 
@@ -42,6 +44,9 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterColor, setFilterColor] = useState<string | null>(null);
   const [filterSet, setFilterSet] = useState<string | null>(null);
+
+  // MAZOS
+  const [creatingDeck, setCreatingDeck] = useState(false);
 
   // 1. Ocultar cabecera nativa
   useLayoutEffect(() => {
@@ -150,6 +155,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
       if (r === "RARE") label = "R";
       if (r === "SUPER RARE") label = "SR";
       if (r === "SECRET RARE") label = "SEC";
+      if (r === "PROMO") label = "P";
       counts[label] = (counts[label] || 0) + 1;
     });
     const sortOrder = ["L", "C", "UC", "R", "SR", "SEC", "P"];
@@ -191,12 +197,28 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
     setShowFilterModal(false);
   };
 
+  // ✅ MAZOS: accesos rápidos
+  const goToDecks = () => navigation.navigate("DecksList");
+
+  const createDeckQuick = async () => {
+    if (creatingDeck) return;
+    setCreatingDeck(true);
+    try {
+      const deck = await deckService.createDeck("Nuevo mazo");
+      navigation.navigate("DeckBuilder", { deckId: deck.id });
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "No se pudo crear el mazo");
+    } finally {
+      setCreatingDeck(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={[PALETTE.deepOcean, PALETTE.navy, "#1e4d6b"]}
       style={styles.mainContainer}
     >
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <StatusBar barStyle="light-content" />
 
         {loading && collection.length === 0 ? (
@@ -213,16 +235,47 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             ListHeaderComponent={
-              <CollectionHeader
-                stats={stats}
-                searchText={searchText}
-                setSearchText={setSearchText}
-                onOpenFilters={() => setShowFilterModal(true)}
-                isFilterActive={!!filterColor || !!filterSet}
-                activeRarity={activeRarity}
-                setActiveRarity={setActiveRarity}
-                rarityStats={rarityStats}
-              />
+              <View>
+                {/* ✅ Sección Mazos */}
+                <View style={styles.decksSection}>
+                  <Text style={styles.decksTitle}>Mazos</Text>
+                  <Text style={styles.decksSub}>
+                    Crea y valida mazos (51 cartas, colores por Leader, máximo 4
+                    copias por código).
+                  </Text>
+
+                  <View style={styles.decksBtnsRow}>
+                    <Pressable onPress={goToDecks} style={styles.decksBtnGhost}>
+                      <Text style={styles.decksBtnGhostText}>Ir a Mazos</Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={createDeckQuick}
+                      disabled={creatingDeck}
+                      style={[
+                        styles.decksBtnPrimary,
+                        creatingDeck && { opacity: 0.6 },
+                      ]}
+                    >
+                      <Text style={styles.decksBtnPrimaryText}>
+                        {creatingDeck ? "Creando…" : "+ Crear mazo"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Header existente */}
+                <CollectionHeader
+                  stats={stats}
+                  searchText={searchText}
+                  setSearchText={setSearchText}
+                  onOpenFilters={() => setShowFilterModal(true)}
+                  isFilterActive={!!filterColor || !!filterSet}
+                  activeRarity={activeRarity}
+                  setActiveRarity={setActiveRarity}
+                  rarityStats={rarityStats}
+                />
+              </View>
             }
             refreshing={loading}
             onRefresh={refresh}
@@ -266,7 +319,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, paddingTop: 40 },
+  mainContainer: { flex: 1 },
   listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
   columnWrapper: {
     justifyContent: "flex-start",
@@ -286,4 +339,38 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 20,
   },
+
+  // ✅ Mazos section
+  decksSection: {
+    backgroundColor: PALETTE.glass,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.glassBorder,
+    marginTop: SPACING.gap,
+    marginBottom: SPACING.gap,
+  },
+  decksTitle: { color: PALETTE.cream, fontWeight: "900", fontSize: 16 },
+  decksSub: { color: PALETTE.textDim, marginTop: 6, lineHeight: 18 },
+
+  decksBtnsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  decksBtnGhost: {
+    flex: 1,
+    backgroundColor: PALETTE.whiteTransparent,
+    borderWidth: 1,
+    borderColor: PALETTE.glassBorder,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  decksBtnGhostText: { color: PALETTE.cream, fontWeight: "900" },
+
+  decksBtnPrimary: {
+    flex: 1,
+    backgroundColor: PALETTE.cream,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  decksBtnPrimaryText: { color: PALETTE.deepOcean, fontWeight: "900" },
 });

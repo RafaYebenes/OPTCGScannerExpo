@@ -2,16 +2,16 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useLayoutEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Pressable,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DeckRow, deckService } from "../../services/deckService";
 import { DecksListScreenNavigationProp } from "../../types/navigation.types";
@@ -19,7 +19,6 @@ import { PALETTE, SPACING } from "../../utils/theme";
 
 export const DecksListScreen: React.FC = () => {
   const navigation = useNavigation<DecksListScreenNavigationProp>();
-
   const [loading, setLoading] = useState(true);
   const [decks, setDecks] = useState<DeckRow[]>([]);
 
@@ -33,7 +32,7 @@ export const DecksListScreen: React.FC = () => {
       const data = await deckService.listDecks();
       setDecks(data);
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "No se pudieron cargar los mazos");
+      Alert.alert("Error", e.message ?? "No se pudieron cargar los mazos");
     } finally {
       setLoading(false);
     }
@@ -50,13 +49,12 @@ export const DecksListScreen: React.FC = () => {
       const deck = await deckService.createDeck("Nuevo mazo");
       navigation.navigate("DeckBuilder", { deckId: deck.id });
     } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "No se pudo crear el mazo");
+      Alert.alert("Error", e.message ?? "No se pudo crear el mazo");
     }
   };
 
-  const onOpen = (deckId: string) => {
+  const onOpen = (deckId: string) =>
     navigation.navigate("DeckBuilder", { deckId });
-  };
 
   const onDelete = (deckId: string) => {
     Alert.alert("Eliminar mazo", "¿Seguro que quieres eliminar este mazo?", [
@@ -69,7 +67,7 @@ export const DecksListScreen: React.FC = () => {
             await deckService.deleteDeck(deckId);
             load();
           } catch (e: any) {
-            Alert.alert("Error", e?.message ?? "No se pudo eliminar");
+            Alert.alert("Error", e.message ?? "No se pudo eliminar");
           }
         },
       },
@@ -77,35 +75,39 @@ export const DecksListScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={[PALETTE.navy, PALETTE.deepOcean]}
-        style={styles.bg}
-      >
-        <View style={styles.header}>
+    <LinearGradient
+      colors={[PALETTE.deepOcean, PALETTE.navy, "#1e4d6b"]}
+      style={styles.mainContainer}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
+        <StatusBar barStyle="light-content" />
+
+        <View style={styles.headerRow}>
           <Text style={styles.title}>Mazos</Text>
-          <Pressable
-            onPress={() => navigation.navigate("Collection")}
-            style={styles.headerBtn}
-          >
-            <Text style={styles.headerBtnText}>Volver</Text>
+          <Pressable onPress={onCreate} style={styles.primaryBtn}>
+            <Text style={styles.primaryBtnText}>+ Nuevo</Text>
           </Pressable>
         </View>
-
-        <Pressable onPress={onCreate} style={styles.primaryBtn}>
-          <Text style={styles.primaryBtnText}>+ Nuevo mazo</Text>
-        </Pressable>
 
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={PALETTE.cream} />
+            <Text style={styles.dimText}>Cargando...</Text>
           </View>
         ) : (
           <FlatList
             data={decks}
             keyExtractor={(d) => d.id}
-            contentContainerStyle={{ paddingBottom: 24 }}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Text style={{ fontSize: 40, opacity: 0.6, marginBottom: 10 }}>
+                  🃏
+                </Text>
+                <Text style={styles.emptyText}>Aún no tienes mazos</Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => onOpen(item.id)}
@@ -113,7 +115,7 @@ export const DecksListScreen: React.FC = () => {
                 style={styles.card}
               >
                 <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardMeta}>
+                <Text style={styles.cardSub}>
                   Actualizado: {new Date(item.updated_at).toLocaleString()}
                 </Text>
                 <Text style={styles.cardHint}>
@@ -123,50 +125,47 @@ export const DecksListScreen: React.FC = () => {
             )}
           />
         )}
-      </LinearGradient>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: PALETTE.deepOcean },
-  bg: { flex: 1, padding: 16 },
-  header: {
+  mainContainer: { flex: 1 },
+  headerRow: {
+    paddingHorizontal: SPACING.gap,
+    paddingTop: SPACING.gap,
+    paddingBottom: SPACING.gap,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   title: { color: PALETTE.cream, fontSize: 22, fontWeight: "900" },
-  headerBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: PALETTE.whiteTransparent,
-    borderWidth: 1,
-    borderColor: PALETTE.glassBorder,
-  },
-  headerBtnText: { color: PALETTE.cream, fontWeight: "800" },
-
   primaryBtn: {
-    marginTop: SPACING.gap,
     backgroundColor: PALETTE.cream,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   primaryBtnText: { color: PALETTE.deepOcean, fontWeight: "900" },
-
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-
+  listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 24 },
   card: {
-    marginTop: SPACING.gap,
     backgroundColor: PALETTE.glass,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
     borderColor: PALETTE.glassBorder,
+    marginBottom: SPACING.gap,
   },
   cardTitle: { color: PALETTE.cream, fontWeight: "900", fontSize: 16 },
-  cardMeta: { color: PALETTE.textDim, marginTop: 6 },
+  cardSub: { color: PALETTE.cream, opacity: 0.85, marginTop: 6 },
   cardHint: { color: PALETTE.textDim, marginTop: 8, fontSize: 12 },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  dimText: { color: PALETTE.textDim, marginTop: 10 },
+  emptyText: { color: PALETTE.cream, fontSize: 16, textAlign: "center" },
 });

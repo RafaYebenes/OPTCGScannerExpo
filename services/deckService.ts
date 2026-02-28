@@ -363,4 +363,43 @@ export const deckService = {
     if (error) throw error;
     return data as CardRow;
   },
+
+  async setLeaderFast(deckId: string, leaderCardId: string): Promise<void> {
+    // Sin validaciones extra: la UI ya filtra a LEADER.
+    const { error } = await supabase
+      .from("decks")
+      .update({ leader_card_id: leaderCardId })
+      .eq("id", deckId);
+
+    if (error) throw error;
+  },
+
+  async writeDeckCardQuantity(
+    deckId: string,
+    cardId: string,
+    quantity: number,
+  ): Promise<void> {
+    // 1 request máximo
+    if (quantity <= 0) {
+      const { error } = await supabase
+        .from("deck_cards")
+        .delete()
+        .eq("deck_id", deckId)
+        .eq("card_id", cardId);
+
+      if (error) throw error;
+      return;
+    }
+
+    const safeQty = Math.min(4, Math.max(1, Math.floor(quantity)));
+
+    const { error } = await supabase
+      .from("deck_cards")
+      .upsert(
+        { deck_id: deckId, card_id: cardId, quantity: safeQty },
+        { onConflict: "deck_id,card_id" },
+      );
+
+    if (error) throw error;
+  },
 };

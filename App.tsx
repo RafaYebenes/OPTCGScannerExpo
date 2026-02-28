@@ -1,20 +1,23 @@
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React from 'react';
-import { ActivityIndicator, StatusBar, Text, View } from 'react-native';
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import React from "react";
+import { ActivityIndicator, StatusBar, Text, View } from "react-native";
 
 // Contextos
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { CollectionProvider } from './context/CollectionContext';
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CollectionProvider } from "./context/CollectionContext";
 
 // Pantallas
-import { CardDetailScreen } from './screens/collection/CardDetailScreen';
-import { CollectionScreen } from './screens/collection/CollectionScreen';
-import { LoginScreen } from './screens/login/LoginScreen';
-import { ScannerScreen } from './screens/scanner/ScannerScreen';
+import { CardDetailScreen } from "./screens/collection/CardDetailScreen";
+import { CollectionScreen } from "./screens/collection/CollectionScreen";
+import { CardSelectorScreen } from "./screens/decks/CardSelectorScreen";
+import { DeckBuilderScreen } from "./screens/decks/DeckBuilderScreen";
+import { DecksListScreen } from "./screens/decks/DecksListScreen";
+import { LoginScreen } from "./screens/login/LoginScreen";
+import { ScannerScreen } from "./screens/scanner/ScannerScreen";
 
 // Tipos
-import { RootStackParamList } from './types/navigation.types';
+import { RootStackParamList } from "./types/navigation.types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,9 +27,16 @@ const NavigationContent = () => {
   // 1. SI ESTÁ CARGANDO -> SPINNER
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#001525",
+        }}
+      >
         <ActivityIndicator size="large" color="#fdf0d5" />
-        <Text style={{ color: '#fdf0d5', marginTop: 20 }}>Iniciando...</Text>
+        <Text style={{ color: "#fdf0d5", marginTop: 20 }}>Iniciando...</Text>
       </View>
     );
   }
@@ -39,10 +49,22 @@ const NavigationContent = () => {
           <>
             <Stack.Screen name="Scanner" component={ScannerScreen} />
             <Stack.Screen name="Collection" component={CollectionScreen} />
-            <Stack.Screen 
-              name="CardDetail" 
+            <Stack.Screen
+              name="CardDetail"
               component={CardDetailScreen}
-              options={{ animation: 'slide_from_bottom' }}
+              options={{ animation: "slide_from_bottom" }}
+            />
+            {/* Decks */}
+            <Stack.Screen name="DecksList" component={DecksListScreen} />
+            <Stack.Screen
+              name="DeckBuilder"
+              component={DeckBuilderScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="CardSelector"
+              component={CardSelectorScreen}
+              options={{ animation: "slide_from_bottom" }}
             />
           </>
         ) : (
