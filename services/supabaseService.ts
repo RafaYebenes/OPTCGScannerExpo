@@ -1,78 +1,77 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from "../lib/supabase";
 
 export const supabaseService = {
-
   // --- HELPER: Obtener ID del usuario logueado ---
   async getCurrentUserId(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     return session?.user?.id || null;
   },
 
   // --- AÑADIR CARTA (BLINDADO) ---
-  async addCardToCollection(userId: string, rawCode: string, isFoil: boolean = false) {
+  async addCardToCollection(
+    userId: string,
+    rawCode: string,
+    isFoil: boolean = false,
+  ) {
     try {
-      // 1. LIMPIEZA: Quitamos espacios y forzamos mayúsculas
-      // Esto soluciona el 99% de errores de "Carta no encontrada"
       const cardCode = rawCode.trim().toUpperCase();
-      
       console.log(`🔍 Buscando carta: '${cardCode}' (Foil: ${isFoil})`);
 
       let cardIdToAdd = null;
 
       // 2. LÓGICA DE BÚSQUEDA
       if (isFoil) {
-        // A. Si es Foil/AA, intentamos ser listos y buscar si existe una variante '_p1' en la BBDD
-        // Esto es para que se guarde con la IMAGEN de la Alt Art si es posible.
         const { data: altCard } = await supabase
-          .from('cards')
-          .select('id')
-          .ilike('code', `${cardCode}`) // Busca OP01-001_p1, _p2...
-          .eq('variant', 'Parallel') // Solo nos interesan variantes Foil
+          .from("cards")
+          .select("id")
+          .ilike("code", `${cardCode}`) // (nota: si tus alternas no tienen el mismo code exacto, habrá que cambiar esto)
+          .eq("variant", "Parallel")
           .limit(1)
           .maybeSingle();
-        
+
         if (altCard) {
-            console.log("✨ Variante encontrada en DB, usando ID alternativo.");
-            cardIdToAdd = altCard.id;
+          console.log("✨ Variante encontrada en DB, usando ID alternativo.");
+          cardIdToAdd = altCard.id;
         }
       }
 
-      // B. Si no encontramos variante (o no es foil), buscamos la carta base exacta
       if (!cardIdToAdd) {
         const { data: baseCard, error: baseError } = await supabase
-            .from('cards')
-            .select('id')
-            .eq('code', cardCode)
-            .eq('variant', 'Normal') // Aseguramos coger la versión normal para no duplicar variantes
-            .maybeSingle(); // Usamos maybeSingle para no lanzar error todavía
+          .from("cards")
+          .select("id")
+          .eq("code", cardCode)
+          .eq("variant", "Normal")
+          .maybeSingle();
 
-          console.log(`🔍 Buscando carta base: '${baseCard}'`);
+        console.log(`🔍 Buscando carta base: '${baseCard}'`);
         if (baseError || !baseCard) {
-            console.error("❌ Error DB buscando carta base:", baseError);
-            throw new Error(`La carta '${cardCode}' no existe en la base de datos maestra.`);
+          console.error("❌ Error DB buscando carta base:", baseError);
+          throw new Error(
+            `La carta '${cardCode}' no existe en la base de datos maestra.`,
+          );
         }
         cardIdToAdd = baseCard.id;
       }
 
-      // 3. INSERTAR EN LA COLECCIÓN DEL USUARIO
       const { data, error } = await supabase
-        .from('user_collection') 
+        .from("user_collection")
         .insert({
           user_id: userId,
           card_id: cardIdToAdd,
           quantity: 1,
-          is_foil: isFoil, 
+          is_foil: isFoil,
         })
         .select()
         .single();
 
       if (error) throw error;
-      
+
       console.log("✅ Carta guardada con éxito:", data.id);
       return { success: true, data };
-
     } catch (error: any) {
-      console.error('🚨 Error en addCardToCollection:', error.message);
+      console.error("🚨 Error en addCardToCollection:", error.message);
       return { success: false, error: error.message };
     }
   },
@@ -84,8 +83,9 @@ export const supabaseService = {
       if (!userId) return [];
 
       const { data, error } = await supabase
-        .from('user_collection')
-        .select(`
+        .from("user_collection")
+        .select(
+          `
           id,
           quantity,
           scanned_at,
@@ -97,18 +97,20 @@ export const supabaseService = {
             name,
             set_code,
             rarity,
-            variant, 
+            variant,
             image_url,
-            market_price_eur
+            market_price_eur,
+            color
           )
-        `)
-        .eq('user_id', userId)
-        .order('scanned_at', { ascending: false });
+        `,
+        )
+        .eq("user_id", userId)
+        .order("scanned_at", { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('❌ Error recuperando colección:', error);
+      console.error("❌ Error recuperando colección:", error);
       return [];
     }
   },
@@ -120,21 +122,24 @@ export const supabaseService = {
       if (!userId) return false;
 
       const { error } = await supabase
-        .from('user_collection')
+        .from("user_collection")
         .delete()
-        .eq('id', collectionId)
-        .eq('user_id', userId);
+        .eq("id", collectionId)
+        .eq("user_id", userId);
 
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error borrando:', error);
+      console.error("Error borrando:", error);
       return false;
     }
   },
 
   // --- ACTUALIZAR CANTIDAD ---
-  async updateCardQuantity(collectionId: string, newQuantity: number): Promise<boolean> {
+  async updateCardQuantity(
+    collectionId: string,
+    newQuantity: number,
+  ): Promise<boolean> {
     try {
       const userId = await this.getCurrentUserId();
       if (!userId) return false;
@@ -144,15 +149,15 @@ export const supabaseService = {
       }
 
       const { error } = await supabase
-        .from('user_collection')
+        .from("user_collection")
         .update({ quantity: newQuantity })
-        .eq('id', collectionId)
-        .eq('user_id', userId);
+        .eq("id", collectionId)
+        .eq("user_id", userId);
 
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error actualizando cantidad:', error);
+      console.error("Error actualizando cantidad:", error);
       return false;
     }
   },
@@ -161,24 +166,75 @@ export const supabaseService = {
   async getBaseCardByCode(rawCode: string) {
     try {
       const cardCode = rawCode.trim().toUpperCase();
-      
+
       const { data, error } = await supabase
-        .from('cards')
-        .select('*')
-        .eq('code', cardCode)
-        .eq('variant', 'Normal')
-        .maybeSingle(); // Trae el primer resultado o null si no existe
+        .from("cards")
+        .select("*")
+        .eq("code", cardCode)
+        .eq("variant", "Normal")
+        .maybeSingle();
 
       if (error) throw error;
-      
+
       if (!data) {
         console.warn(`⚠️ No se encontró carta base con código: ${cardCode}`);
       }
 
       return data;
     } catch (error: any) {
-      console.error('🚨 Error en getBaseCardByCode:', error.message);
+      console.error("🚨 Error en getBaseCardByCode:", error.message);
       return null;
     }
-  }
+  },
+
+  // ==========================
+  // ✅ NUEVO: count total cards
+  // ==========================
+  async getCardsCount(): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from("cards")
+        .select("id", { count: "exact", head: true });
+
+      if (error) throw error;
+      return count ?? 0;
+    } catch (e) {
+      console.warn("⚠️ No se pudo obtener count de cards");
+      return 0;
+    }
+  },
+
+  // ==========================================
+  // ✅ NUEVO: catálogo completo (paginación)
+  // ==========================================
+  async getCardsCatalogAll() {
+    try {
+      const pageSize = 1000;
+      let from = 0;
+      const all: any[] = [];
+
+      while (true) {
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+          .from("cards")
+          .select("id,code,name,set_code,color,type,variant,image_url")
+          .order("code", { ascending: true })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const batch = data ?? [];
+        all.push(...batch);
+
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return all;
+    } catch (error) {
+      console.error("❌ Error cargando catálogo de cartas:", error);
+      return [];
+    }
+  },
 };

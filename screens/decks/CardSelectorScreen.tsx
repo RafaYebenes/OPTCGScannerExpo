@@ -1,12 +1,6 @@
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DeckCardTile } from "../../components/decks/DeckCardTile";
-import { supabase } from "../../lib/supabase";
+import { useCollection } from "../../context/CollectionContext";
 import { deckService } from "../../services/deckService";
 import { deckStore } from "../../services/deckStore";
 import {
@@ -38,6 +32,7 @@ type CardPick = {
   type: string | null;
   variant: string | null;
   image_url: string | null;
+  set_code?: string | null;
 };
 
 const normalizeColors = (raw: string | null | undefined): string[] => {
@@ -58,14 +53,27 @@ const colorsSubsetOfLeader = (
   return card.every((c) => leader.has(c));
 };
 
+// Debounce simple (sin librerías)
+const useDebouncedValue = <T,>(value: T, delayMs: number) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+};
+
 export const CardSelectorScreen: React.FC = () => {
   const navigation = useNavigation<CardSelectorScreenNavigationProp>();
   const route = useRoute<CardSelectorScreenRouteProp>();
   const { deckId, mode } = route.params;
 
+  // ✅ Catálogo precargado
+  const { cardCatalog, catalogLoading, loadCardCatalog } = useCollection();
+
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [cards, setCards] = useState<CardPick[]>([]);
+  const debouncedQ = useDebouncedValue(q, 180);
+
   const [detail, setDetail] = useState<any>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
@@ -79,7 +87,7 @@ export const CardSelectorScreen: React.FC = () => {
     return unsub;
   }, [deckId]);
 
-  // Si no hay cache, fetch 1 vez
+  // Si no hay cache del deck en store, fetch 1 vez
   useEffect(() => {
     (async () => {
       if (deckStore.get(deckId)) return;
@@ -92,6 +100,14 @@ export const CardSelectorScreen: React.FC = () => {
       }
     })();
   }, [deckId, navigation]);
+
+  // ✅ Asegurar catálogo cargado (solo si falta)
+  useEffect(() => {
+    if (cardCatalog.length === 0 && !catalogLoading) {
+      loadCardCatalog().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardCatalog.length, catalogLoading]);
 
   const leaderColor = detail?.leader?.color ?? null;
 
@@ -123,50 +139,50 @@ export const CardSelectorScreen: React.FC = () => {
 
   const title = mode === "leader" ? "Selecciona Leader" : "Añadir cartas";
 
-  const search = useCallback(async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from("cards")
-        .select("id,code,name,color,type,variant,image_url")
-        .limit(120)
-        .order("code", { ascending: true });
+  // ✅ BÚSQUEDA LOCAL (catálogo → filtros → top N)
+  const filteredCards: CardPick[] = useMemo(() => {
+    const base = cardCatalog as unknown as CardPick[];
 
-      if (mode === "leader") query = query.eq("type", "LEADER");
-      else query = query.neq("type", "LEADER");
+    // 1) tipo
+    let list =
+      mode === "leader"
+        ? base.filter((c) => (c.type ?? "").toUpperCase() === "LEADER")
+        : base.filter((c) => (c.type ?? "").toUpperCase() !== "LEADER");
 
-      const qq = q.trim();
-      if (qq.length >= 2)
-        query = query.or(`name.ilike.%${qq}%,code.ilike.%${qq}%`);
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let list = (data ?? []) as CardPick[];
-
-      // UX: si main y hay leader → solo compatibles
-      if (mode === "main" && leaderColor) {
-        list = list.filter((c) => colorsSubsetOfLeader(leaderColor, c.color));
-      }
-
-      setCards(list);
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "No se pudo buscar");
-    } finally {
-      setLoading(false);
+    // 2) compatibilidad de color (solo en main si hay leader)
+    if (mode === "main" && leaderColor) {
+      list = list.filter((c) => colorsSubsetOfLeader(leaderColor, c.color));
     }
-  }, [q, mode, leaderColor]);
 
-  useEffect(() => {
-    search();
-  }, []);
+    // 3) búsqueda por texto (min 2 chars)
+    const qq = debouncedQ.trim().toUpperCase();
+    if (qq.length >= 2) {
+      list = list.filter((c) => {
+        const name = (c.name ?? "").toUpperCase();
+        const code = (c.code ?? "").toUpperCase();
+        const set = (c.set_code ?? "").toUpperCase();
+        return name.includes(qq) || code.includes(qq) || set.includes(qq);
+      });
+      // Limitar resultados cuando hay búsqueda
+      list = list.slice(0, 240);
+    } else {
+      // Sin búsqueda: igual que antes (muestras un “slice”)
+      list = list.slice(0, 120);
+    }
+
+    // 4) orden por code
+    list = [...list].sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""));
+
+    return list;
+  }, [cardCatalog, mode, leaderColor, debouncedQ]);
 
   const setLeaderLocal = async (card: CardPick) => {
     if (pending[card.id]) return;
     setPending((p) => ({ ...p, [card.id]: true }));
 
-    // Optimista: actualiza store para que builder lo vea al volver
     const snapshot = detail;
+
+    // Optimista
     deckStore.update(deckId, (prev) => ({
       ...prev,
       deck: { ...prev.deck, leader_card_id: card.id },
@@ -208,7 +224,7 @@ export const CardSelectorScreen: React.FC = () => {
       return;
     }
 
-    // Guard: colores (por seguridad, aunque ya filtramos)
+    // Guard: colores
     if (!colorsSubsetOfLeader(leaderColor, card.color)) {
       Alert.alert(
         "Color inválido",
@@ -237,7 +253,7 @@ export const CardSelectorScreen: React.FC = () => {
 
       if (idx === -1) {
         cardsArr.push({
-          id: card.id, // placeholder
+          id: card.id, // placeholder (deck_cards id real lo pone supabase)
           deck_id: deckId,
           card_id: card.id,
           quantity: 1,
@@ -277,6 +293,9 @@ export const CardSelectorScreen: React.FC = () => {
     return addMainLocal(card);
   };
 
+  const showCatalogSpinner =
+    (catalogLoading && cardCatalog.length === 0) || !detail;
+
   return (
     <LinearGradient
       colors={[PALETTE.deepOcean, PALETTE.navy, "#1e4d6b"]}
@@ -300,20 +319,25 @@ export const CardSelectorScreen: React.FC = () => {
             placeholder="Buscar por nombre o código (min 2)"
             placeholderTextColor={PALETTE.textDim}
             style={styles.input}
+            autoCorrect={false}
+            autoCapitalize="characters"
           />
-          <Pressable onPress={search} style={styles.primaryBtn}>
+          <Pressable
+            onPress={() => setQ((prev) => prev)} // no-op (ya es local); lo dejamos por UX
+            style={styles.primaryBtn}
+          >
             <Text style={styles.primaryBtnText}>Buscar</Text>
           </Pressable>
         </View>
 
-        {loading ? (
+        {showCatalogSpinner ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={PALETTE.cream} />
-            <Text style={styles.dimText}>Buscando…</Text>
+            <Text style={styles.dimText}>Cargando cartas…</Text>
           </View>
         ) : (
           <FlatList
-            data={cards}
+            data={filteredCards}
             keyExtractor={(it) => it.id}
             numColumns={3}
             columnWrapperStyle={{
@@ -349,7 +373,7 @@ export const CardSelectorScreen: React.FC = () => {
                   🔎
                 </Text>
                 <Text style={styles.emptyText}>
-                  {q.trim().length >= 2
+                  {debouncedQ.trim().length >= 2
                     ? "Sin resultados"
                     : "Escribe al menos 2 caracteres"}
                 </Text>

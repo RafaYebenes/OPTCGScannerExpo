@@ -2,6 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { ActivityIndicator, StatusBar, Text, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Contextos
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -54,6 +55,7 @@ const NavigationContent = () => {
               component={CardDetailScreen}
               options={{ animation: "slide_from_bottom" }}
             />
+
             {/* Decks */}
             <Stack.Screen name="DecksList" component={DecksListScreen} />
             <Stack.Screen
@@ -77,11 +79,13 @@ const NavigationContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CollectionProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <NavigationContent />
-      </CollectionProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CollectionProvider>
+          <StatusBar barStyle="light-content" backgroundColor="#000" />
+          <NavigationContent />
+        </CollectionProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
