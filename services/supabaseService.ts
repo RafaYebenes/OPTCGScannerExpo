@@ -237,4 +237,121 @@ export const supabaseService = {
       return [];
     }
   },
+
+  // ==========================
+  // DECKS (BDD)
+  // ==========================
+
+  async listDecksByUser(userId: string) {
+    const { data, error } = await supabase
+      .from("decks")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async createDeckRow(userId: string, name: string) {
+    const { data, error } = await supabase
+      .from("decks")
+      .insert({ user_id: userId, name })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async renameDeckRow(deckId: string, name: string) {
+    const { error } = await supabase
+      .from("decks")
+      .update({ name })
+      .eq("id", deckId);
+    if (error) throw error;
+  },
+
+  async setDeckLeader(deckId: string, leaderCardId: string) {
+    const { error } = await supabase
+      .from("decks")
+      .update({ leader_card_id: leaderCardId })
+      .eq("id", deckId);
+
+    if (error) throw error;
+  },
+
+  async deleteDeckRow(deckId: string) {
+    const { error } = await supabase.from("decks").delete().eq("id", deckId);
+    if (error) throw error;
+  },
+
+  async getDeckRow(deckId: string) {
+    const { data, error } = await supabase
+      .from("decks")
+      .select("*")
+      .eq("id", deckId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getCardByIdForDeck(cardId: string) {
+    const { data, error } = await supabase
+      .from("cards")
+      .select("id,code,name,set_code,color,type,variant,image_url")
+      .eq("id", cardId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getDeckCards(deckId: string) {
+    const { data, error } = await supabase
+      .from("deck_cards")
+      .select(
+        `
+        id,
+        deck_id,
+        card_id,
+        quantity,
+        card:cards (
+          id,code,name,set_code,color,type,variant,image_url
+        )
+      `,
+      )
+      .eq("deck_id", deckId);
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async upsertDeckCardQuantity(
+    deckId: string,
+    cardId: string,
+    quantity: number,
+  ) {
+    const safeQty = Math.min(4, Math.max(1, Math.floor(quantity)));
+
+    const { error } = await supabase
+      .from("deck_cards")
+      .upsert(
+        { deck_id: deckId, card_id: cardId, quantity: safeQty },
+        { onConflict: "deck_id,card_id" },
+      );
+
+    if (error) throw error;
+  },
+
+  async deleteDeckCard(deckId: string, cardId: string) {
+    const { error } = await supabase
+      .from("deck_cards")
+      .delete()
+      .eq("deck_id", deckId)
+      .eq("card_id", cardId);
+
+    if (error) throw error;
+  },
 };

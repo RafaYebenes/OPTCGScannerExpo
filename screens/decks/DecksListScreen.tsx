@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DeckRow, deckService } from "../../services/deckService";
+import { deckService } from "../../services/deckService";
+import type { DeckRow } from "../../types/deck.types";
 import { DecksListScreenNavigationProp } from "../../types/navigation.types";
 import { PALETTE, SPACING } from "../../utils/theme";
 

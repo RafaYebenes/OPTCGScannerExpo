@@ -22,6 +22,7 @@ import {
   CardSelectorScreenNavigationProp,
   CardSelectorScreenRouteProp,
 } from "../../types/navigation.types";
+import { colorsSubsetOfLeader } from "../../utils/deckUtils";
 import { PALETTE, SPACING } from "../../utils/theme";
 
 type CardPick = {
@@ -33,24 +34,6 @@ type CardPick = {
   variant: string | null;
   image_url: string | null;
   set_code?: string | null;
-};
-
-const normalizeColors = (raw: string | null | undefined): string[] => {
-  if (!raw) return [];
-  return raw
-    .split(/[\/,]/g)
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-};
-
-const colorsSubsetOfLeader = (
-  leaderColor: string | null | undefined,
-  cardColor: string | null | undefined,
-) => {
-  const leader = new Set(normalizeColors(leaderColor));
-  const card = normalizeColors(cardColor);
-  if (leader.size === 0 || card.length === 0) return true;
-  return card.every((c) => leader.has(c));
 };
 
 // Debounce simple (sin librerías)
@@ -139,22 +122,19 @@ export const CardSelectorScreen: React.FC = () => {
 
   const title = mode === "leader" ? "Selecciona Leader" : "Añadir cartas";
 
-  // ✅ BÚSQUEDA LOCAL (catálogo → filtros → top N)
+  // ✅ BÚSQUEDA LOCAL
   const filteredCards: CardPick[] = useMemo(() => {
     const base = cardCatalog as unknown as CardPick[];
 
-    // 1) tipo
     let list =
       mode === "leader"
         ? base.filter((c) => (c.type ?? "").toUpperCase() === "LEADER")
         : base.filter((c) => (c.type ?? "").toUpperCase() !== "LEADER");
 
-    // 2) compatibilidad de color (solo en main si hay leader)
     if (mode === "main" && leaderColor) {
       list = list.filter((c) => colorsSubsetOfLeader(leaderColor, c.color));
     }
 
-    // 3) búsqueda por texto (min 2 chars)
     const qq = debouncedQ.trim().toUpperCase();
     if (qq.length >= 2) {
       list = list.filter((c) => {
@@ -163,17 +143,12 @@ export const CardSelectorScreen: React.FC = () => {
         const set = (c.set_code ?? "").toUpperCase();
         return name.includes(qq) || code.includes(qq) || set.includes(qq);
       });
-      // Limitar resultados cuando hay búsqueda
       list = list.slice(0, 240);
     } else {
-      // Sin búsqueda: igual que antes (muestras un “slice”)
       list = list.slice(0, 120);
     }
 
-    // 4) orden por code
-    list = [...list].sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""));
-
-    return list;
+    return [...list].sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""));
   }, [cardCatalog, mode, leaderColor, debouncedQ]);
 
   const setLeaderLocal = async (card: CardPick) => {
@@ -182,7 +157,6 @@ export const CardSelectorScreen: React.FC = () => {
 
     const snapshot = detail;
 
-    // Optimista
     deckStore.update(deckId, (prev) => ({
       ...prev,
       deck: { ...prev.deck, leader_card_id: card.id },
@@ -218,13 +192,11 @@ export const CardSelectorScreen: React.FC = () => {
     }
     if (pending[card.id]) return;
 
-    // Guard: main deck 50
     if (mainCount >= 50) {
       Alert.alert("Límite", "El main deck ya tiene 50 cartas.");
       return;
     }
 
-    // Guard: colores
     if (!colorsSubsetOfLeader(leaderColor, card.color)) {
       Alert.alert(
         "Color inválido",
@@ -233,7 +205,6 @@ export const CardSelectorScreen: React.FC = () => {
       return;
     }
 
-    // Guard: max 4 por code (Normal+Parallel suman)
     const currentByCode = countsByCode.get(card.code) ?? 0;
     if (currentByCode >= 4) {
       Alert.alert("Límite", `Máximo 4 copias por carta (${card.code}).`);
@@ -246,14 +217,13 @@ export const CardSelectorScreen: React.FC = () => {
     setPending((p) => ({ ...p, [card.id]: true }));
     const snapshot = detail;
 
-    // Optimista: actualiza store sin fetch
     deckStore.update(deckId, (prev) => {
       const cardsArr = [...prev.cards];
       const idx = cardsArr.findIndex((dc) => dc.card_id === card.id);
 
       if (idx === -1) {
         cardsArr.push({
-          id: card.id, // placeholder (deck_cards id real lo pone supabase)
+          id: card.id,
           deck_id: deckId,
           card_id: card.id,
           quantity: 1,
@@ -293,8 +263,7 @@ export const CardSelectorScreen: React.FC = () => {
     return addMainLocal(card);
   };
 
-  const showCatalogSpinner =
-    (catalogLoading && cardCatalog.length === 0) || !detail;
+  const showSpinner = (catalogLoading && cardCatalog.length === 0) || !detail;
 
   return (
     <LinearGradient
@@ -323,14 +292,14 @@ export const CardSelectorScreen: React.FC = () => {
             autoCapitalize="characters"
           />
           <Pressable
-            onPress={() => setQ((prev) => prev)} // no-op (ya es local); lo dejamos por UX
+            onPress={() => setQ((prev) => prev)}
             style={styles.primaryBtn}
           >
             <Text style={styles.primaryBtnText}>Buscar</Text>
           </Pressable>
         </View>
 
-        {showCatalogSpinner ? (
+        {showSpinner ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={PALETTE.cream} />
             <Text style={styles.dimText}>Cargando cartas…</Text>

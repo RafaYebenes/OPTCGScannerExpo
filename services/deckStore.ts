@@ -1,5 +1,5 @@
 // services/deckStore.ts
-import type { DeckDetail } from "./deckService";
+import type { DeckDetail } from "../types/deck.types";
 
 type Listener = (detail: DeckDetail | null) => void;
 
@@ -39,7 +39,6 @@ export const deckStore = {
     if (!listeners.has(deckId)) listeners.set(deckId, new Set());
     listeners.get(deckId)!.add(cb);
 
-    // Push inicial
     cb(store.get(deckId) ?? null);
 
     return () => {

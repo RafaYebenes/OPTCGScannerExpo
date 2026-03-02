@@ -15,13 +15,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DeckCardTile } from "../../components/decks/DeckCardTile";
-import {
-  DeckCardRow,
-  DeckDetail,
-  deckRules,
-  deckService,
-} from "../../services/deckService";
+import { deckRules, deckService } from "../../services/deckService";
 import { deckStore } from "../../services/deckStore";
+import type { DeckCardRow, DeckDetail } from "../../types/deck.types";
 import {
   DeckBuilderScreenNavigationProp,
   DeckBuilderScreenRouteProp,
@@ -41,7 +37,6 @@ export const DeckBuilderScreen: React.FC = () => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  // subscribe store
   useEffect(() => {
     const unsub = deckStore.subscribe(deckId, (d) => {
       if (d) {
@@ -52,7 +47,6 @@ export const DeckBuilderScreen: React.FC = () => {
     return unsub;
   }, [deckId]);
 
-  // initial load (once)
   useEffect(() => {
     (async () => {
       if (deckStore.get(deckId)) return;
@@ -151,13 +145,11 @@ export const DeckBuilderScreen: React.FC = () => {
     const cardId = row.card_id;
     if (pending[cardId]) return;
 
-    // guard main deck 50
     if (nextQty > row.quantity && mainCount >= 50) {
       Alert.alert("Límite", "El main deck ya tiene 50 cartas.");
       return;
     }
 
-    // guard max 4 por code (Normal+Parallel suman)
     const code = row.card?.code;
     if (code && nextQty > row.quantity) {
       const totalByCode = countsByCode.get(code) ?? 0;
@@ -213,7 +205,6 @@ export const DeckBuilderScreen: React.FC = () => {
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <StatusBar barStyle="light-content" />
 
-        {/* Header fijo (solo back/title/validar) */}
         <View style={styles.headerRow}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Text style={styles.backText}>←</Text>
@@ -224,7 +215,6 @@ export const DeckBuilderScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {/* ✅ Un único scroll: FlatList con Header scrolleable */}
         <FlatList
           data={detail.cards}
           keyExtractor={(it) => it.card_id}
@@ -246,7 +236,6 @@ export const DeckBuilderScreen: React.FC = () => {
                 paddingBottom: SPACING.gap,
               }}
             >
-              {/* Nombre */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Nombre</Text>
                 <View style={styles.row}>
@@ -263,7 +252,6 @@ export const DeckBuilderScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* ✅ Leader compacto */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>Leader</Text>
@@ -314,7 +302,6 @@ export const DeckBuilderScreen: React.FC = () => {
                 )}
               </View>
 
-              {/* Main Deck */}
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>Main Deck</Text>
