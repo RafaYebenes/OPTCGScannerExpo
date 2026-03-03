@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PALETTE, SPACING } from '../../utils/theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -12,7 +13,12 @@ interface CardGridItemProps {
   onLongPress: (item: any) => void;
 }
 
+  const insets = useSafeAreaInsets();
+
+
 export const CardGridItem: React.FC<CardGridItemProps> = ({ item, onPress, onLongPress }) => {
+
+
   return (
     <Pressable 
       style={({pressed}) => [styles.slabContainer, pressed && styles.slabPressed]}
@@ -136,7 +142,7 @@ const styles = StyleSheet.create({
   // --- ALT ART STAR ---
   altArtStarContainer: {
     position: 'absolute',
-    top: 4, right: 4,
+    top: insets.top + 4, right: insets.right + 4,
     width: 16, height: 16,
     borderRadius: 8,
     backgroundColor: 'rgba(0,0,0,0.6)', // Fondo oscuro suave tras la estrella
@@ -145,6 +151,6 @@ const styles = StyleSheet.create({
     zIndex: 15
   },
   starText: {
-    color: PALETTE.gold, fontSize: 9, fontWeight: 'bold', marginTop: -1
+    color: PALETTE.gold, fontSize: 9, fontWeight: 'bold', marginTop: insets.top - 1
   }
 });

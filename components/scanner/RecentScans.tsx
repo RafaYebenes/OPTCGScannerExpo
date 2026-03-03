@@ -1,8 +1,8 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScannedCard } from '../../types/card.types';
 import { cardCodeParser } from '../../utils/cardCodeParser';
-
 // --- PALETA ---
 const PALETTE = {
   black: "#000000",
@@ -16,6 +16,8 @@ interface Props {
   cards: ScannedCard[];
   onCardPress: (card: ScannedCard) => void;
 }
+
+const insets = useSafeAreaInsets();
 
 export const RecentScans: React.FC<Props> = ({ cards, onCardPress }) => {
   if (cards.length === 0) return null;
@@ -72,7 +74,7 @@ const formatTime = (timestamp: number): string => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 25,
+    bottom: insets.bottom + 25,
     left: 0,
     right: 0,
   },
@@ -80,22 +82,22 @@ const styles = StyleSheet.create({
     color: PALETTE.cream,
     fontSize: 12,
     fontWeight: 'bold',
-    marginLeft: 20,
-    marginBottom: 8,
+    marginLeft: insets.left + 20,
+    marginBottom: insets.bottom + 8,
     opacity: 0.8,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   scrollContent: {
-    paddingLeft: 20,
-    paddingRight: 10,
+    paddingLeft: insets.left + 20,
+    paddingRight: insets.right + 10,
   },
   // Mini Slab Estilo "Black Box"
   card: {
     backgroundColor: PALETTE.black, // Fondo Negro Puro
     borderRadius: 8,
     padding: 10,
-    marginRight: 10,
+    marginRight: insets.right + 10,
     minWidth: 100,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
@@ -106,7 +108,7 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: insets.bottom + 4,
   },
   cardCode: {
     color: PALETTE.cream,
@@ -115,13 +117,13 @@ const styles = StyleSheet.create({
   },
   star: { color: PALETTE.gold, fontSize: 10 },
   cardBody: {
-    marginTop: 2,
+    marginTop: insets.top + 4,
   },
   cardSet: {
     color: PALETTE.lightBlue,
     fontSize: 9,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: insets.bottom + 2,
   },
   timeText: {
     color: 'rgba(253, 240, 213, 0.5)',

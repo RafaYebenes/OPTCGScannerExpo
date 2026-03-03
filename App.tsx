@@ -17,9 +17,9 @@ import { ScannerScreen } from './screens/scanner/ScannerScreen';
 import { RootStackParamList } from './types/navigation.types';
 
 //New safeAreaView
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
+const insets = useSafeAreaInsets();
 const NavigationContent = () => {
   const { user, loading } = useAuth();
 
@@ -29,7 +29,7 @@ const NavigationContent = () => {
       <SafeAreaProvider>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
           <ActivityIndicator size="large" color="#fdf0d5" />
-          <Text style={{ color: '#fdf0d5', marginTop: 20 }}>Iniciando...</Text>
+          <Text style={{ color: '#fdf0d5', marginTop: insets.top + 20 }}>Iniciando...</Text>
         </View>
       </SafeAreaProvider>
     );

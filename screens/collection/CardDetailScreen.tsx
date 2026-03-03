@@ -13,7 +13,7 @@ import {
     Text,
     View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCollection } from '../../context/CollectionContext';
 import { cardCodeParser } from '../../utils/cardCodeParser';
 
@@ -30,6 +30,7 @@ const THEME = {
 };
 
 const { width } = Dimensions.get('window');
+const insets = useSafeAreaInsets();
 
 export const CardDetailScreen = ({ route, navigation }: any) => {
     // --- PROTECCIÓN CONTRA CRASHES ---
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, paddingTop: StatusBar.currentHeight || 0, backgroundColor: THEME.deepOcean },
     scrollContent: { paddingBottom: 150 },
 
-    navBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+    navBar: { paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 10 },
     backButton: { padding: 8 },
     backText: { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
 
@@ -446,7 +447,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         // --- AJUSTE DE ALINEACIÓN VERTICAL ---
         position: 'relative',
-        top: 3,                   // Lo baja justo al centro del texto
+        top: insets.top + 3,                   // Lo baja justo al centro del texto
         marginBottom: -3,
     },
     badgeText: {
@@ -476,6 +477,6 @@ const styles = StyleSheet.create({
     },
 
     boldCondition: {
-        fontWeight: 'bold',        
+        fontWeight: 'bold',
     },
 });

@@ -13,9 +13,11 @@ import {
   TextInput,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
+const insets = useSafeAreaInsets();
 
 // --- PALETA ONE PIECE ---
 const THEME = {
@@ -164,18 +166,18 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   
   // LOGO
-  logoContainer: { alignItems: 'center', marginBottom: 30 },
+  logoContainer: { alignItems: 'center', marginBottom: insets.bottom + 30 },
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: THEME.cream,
-    marginBottom: 16,
+    marginBottom: insets.bottom + 16,
     shadowColor: THEME.gold, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 10,
   },
   logoIcon: { fontSize: 40 },
   appTitle: { color: THEME.cream, fontSize: 36, fontWeight: '900', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  appSubtitle: { color: THEME.gold, fontSize: 10, fontWeight: 'bold', letterSpacing: 6, marginTop: 4 },
+  appSubtitle: { color: THEME.gold, fontSize: 10, fontWeight: 'bold', letterSpacing: 6, marginTop: insets.top + 4 },
 
   // CARD
   glassCard: {
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: insets.bottom + 10,
     shadowColor: THEME.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
   },
   btnPressed: { transform: [{scale: 0.98}], opacity: 0.9 },

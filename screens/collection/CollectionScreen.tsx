@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { ActivityIndicator, Alert, FlatList, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 // new SafeAreaView
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // COMPONENTES & CONTEXTOS
 import { CardGridItem } from '../../components/collection/CardGridItem';
@@ -15,6 +15,8 @@ import { CollectionScreenProps } from '../../types/navigation.types';
 import { PALETTE, SPACING } from '../../utils/theme';
 
 const AVAILABLE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
+const insets = useSafeAreaInsets();
+
 
 export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }) => {
   const { collection, stats, loading, refresh, deleteCard } = useCollection();
@@ -22,7 +24,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   // ESTADOS
   const [searchText, setSearchText] = useState('');
   const [activeRarity, setActiveRarity] = useState<string | null>(null);
-  
   // MODAL FILTROS
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterColor, setFilterColor] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
   // --- SOLUCIÓN AL BUCLE INFINITO ---
   // Guardamos la función refresh en una referencia para que no dispare el efecto
   const refreshRef = useRef(refresh);
-  
+
   // Actualizamos la referencia siempre que cambie la función
   useEffect(() => {
     refreshRef.current = refresh;
@@ -68,18 +69,18 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
       // 2. Rareza
       if (activeRarity) {
         if (activeRarity === 'AA') {
-            if (!item.is_foil) return false;
+          if (!item.is_foil) return false;
         } else {
-            const r = item.card.rarity ? item.card.rarity.toUpperCase() : '?';
-            let label = r;
-            if (r === 'LEADER') label = 'L';
-            if (r === 'COMMON') label = 'C';
-            if (r === 'UNCOMMON') label = 'UC';
-            if (r === 'RARE') label = 'R';
-            if (r === 'SUPER RARE') label = 'SR';
-            if (r === 'SECRET RARE') label = 'SEC';
-            if (r === 'PROMO') label = 'P';
-            if (label !== activeRarity) return false;
+          const r = item.card.rarity ? item.card.rarity.toUpperCase() : '?';
+          let label = r;
+          if (r === 'LEADER') label = 'L';
+          if (r === 'COMMON') label = 'C';
+          if (r === 'UNCOMMON') label = 'UC';
+          if (r === 'RARE') label = 'R';
+          if (r === 'SUPER RARE') label = 'SR';
+          if (r === 'SECRET RARE') label = 'SEC';
+          if (r === 'PROMO') label = 'P';
+          if (label !== activeRarity) return false;
         }
       }
 
@@ -107,15 +108,15 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         existing.quantity += 1;
         existing.ids.push(item.id);
       } else {
-        groups.set(key, { 
-            ...item, 
-            code: item.card.code, 
-            name: item.card.name,
-            image: item.card.image_url,
-            parsedSet: item.card.set_code,
-            isAltArt: item.is_foil,
-            quantity: 1, 
-            ids: [item.id] 
+        groups.set(key, {
+          ...item,
+          code: item.card.code,
+          name: item.card.name,
+          image: item.card.image_url,
+          parsedSet: item.card.set_code,
+          isAltArt: item.is_foil,
+          quantity: 1,
+          ids: [item.id]
         });
       }
     });
@@ -149,8 +150,8 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
   // Sets disponibles
   const availableSets = useMemo(() => {
-      const sets = new Set(collection.map(i => i.card?.set_code).filter(Boolean));
-      return Array.from(sets).sort();
+    const sets = new Set(collection.map(i => i.card?.set_code).filter(Boolean));
+    return Array.from(sets).sort();
   }, [collection]);
 
   const handleDelete = (item: any) => {
@@ -174,9 +175,9 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
   return (
     <LinearGradient colors={[PALETTE.deepOcean, PALETTE.navy, '#1e4d6b']} style={styles.mainContainer}>
-      <SafeAreaView style={{flex: 1}}>
+      <SafeAreaView style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
-        
+
         {loading && collection.length === 0 ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={PALETTE.cream} />
@@ -185,14 +186,14 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         ) : (
           <FlatList
             key={3}
-            data={groupedDisplayCollection} 
+            data={groupedDisplayCollection}
             keyExtractor={(item) => item.ids[0]}
             numColumns={3}
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
-            
+
             ListHeaderComponent={
-              <CollectionHeader 
+              <CollectionHeader
                 stats={stats}
                 searchText={searchText}
                 setSearchText={setSearchText}
@@ -207,10 +208,10 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
             refreshing={loading}
             onRefresh={refresh}
             showsVerticalScrollIndicator={false}
-            
-            renderItem={({ item}) => (
-              <CardGridItem 
-                item={item} 
+
+            renderItem={({ item }) => (
+              <CardGridItem
+                item={item}
                 onPress={(i) => navigation.navigate('CardDetail', { item: i })} //Esto funciona no borrar
                 onLongPress={handleDelete}
               />
@@ -218,18 +219,18 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
             ListEmptyComponent={
               <View style={styles.centerContainer}>
-                <Text style={{fontSize: 40, opacity: 0.5, marginBottom: 10}}>🏴‍☠️</Text>
+                <Text style={{ fontSize: 40, opacity: 0.5, marginBottom: 10 }}>🏴‍☠️</Text>
                 <Text style={styles.emptyText}>
-                    {searchText || activeRarity || filterColor || filterSet 
-                        ? "No se encontraron cartas con esos filtros" 
-                        : "Sin cartas aún"}
+                  {searchText || activeRarity || filterColor || filterSet
+                    ? "No se encontraron cartas con esos filtros"
+                    : "Sin cartas aún"}
                 </Text>
               </View>
             }
           />
         )}
 
-        <FilterModal 
+        <FilterModal
           visible={showFilterModal}
           onClose={() => setShowFilterModal(false)}
           availableColors={AVAILABLE_COLORS}
@@ -247,10 +248,10 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 };
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, paddingTop: 40},
-  listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
+  mainContainer: { flex: 1, paddingTop: insets.top + 40 },
+  listContent: { paddingHorizontal: SPACING.gap, paddingBottom: insets.bottom + 100 },
   columnWrapper: { justifyContent: 'flex-start', gap: SPACING.gap, marginBottom: SPACING.gap },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
-  loadingText: { color: PALETTE.cream, marginTop: 10 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: insets.top + 100 },
+  loadingText: { color: PALETTE.cream, marginTop: insets.top + 10 },
   emptyText: { color: PALETTE.cream, fontSize: 16, textAlign: 'center', paddingHorizontal: 20 },
 });

@@ -25,7 +25,8 @@ import { ScannerScreenProps } from '../../types/navigation.types';
 import { SCANNER_CONFIG } from '../../utils/constants';
 
 //new SafeAreaView
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 const PALETTE = {
   bgDarkGlass: 'rgba(0, 21, 37, 0.9)',
@@ -59,6 +60,84 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const isProcessingRef = useRef(false);
   const isAltModeRef = useRef(isAltMode);
 
+  const insets = useSafeAreaInsets();
+
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#000' },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' },
+    textInfo: { color: PALETTE.cream, fontSize: 16, marginBottom: 20 },
+    textBtn: { color: '#000', fontWeight: 'bold' },
+    actionButton: { backgroundColor: PALETTE.cream, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 25 },
+
+    // BARRA SUPERIOR
+    topControlsContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
+    topBar: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 0
+    },
+    topRightButtons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+
+    glassButton: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: PALETTE.bgDarkGlass,
+      paddingVertical: 8, paddingHorizontal: 12,
+      borderRadius: 20, borderWidth: 1, borderColor: PALETTE.glassBorder,
+      gap: 6,
+    },
+    glassButtonPressed: { backgroundColor: PALETTE.lightBlue },
+    glassButtonText: { color: PALETTE.cream, fontSize: 10, fontWeight: '700' },
+    glassButtonIcon: { color: PALETTE.cream, fontSize: 12 },
+
+    circleButton: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: PALETTE.bgDarkGlass,
+      justifyContent: 'center', alignItems: 'center',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
+    },
+    aaButtonActive: { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
+    aaTextTop: { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
+
+    // BOTÓN FLOTANTE MANUAL
+    manualFloatingBtn: {
+      position: 'absolute',
+      bottom: 150,
+      right: 20,
+      width: 44, height: 44,
+      borderRadius: 12,
+      backgroundColor: PALETTE.bgDarkGlass,
+      justifyContent: 'center', alignItems: 'center',
+      borderWidth: 1, borderColor: PALETTE.glassBorder,
+      zIndex: 60,
+      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 5
+    },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: {
+      width: '85%', backgroundColor: '#001525', padding: 24, borderRadius: 16,
+      borderWidth: 1, borderColor: PALETTE.gold, elevation: 10
+    },
+    modalTitle: { color: PALETTE.gold, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, letterSpacing: 2 },
+    input: {
+      backgroundColor: '#000', color: '#fff', fontSize: 20, textAlign: 'center', fontWeight: 'bold',
+      padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', marginBottom: 24
+    },
+    modalButtons: { flexDirection: 'row', gap: 12 },
+    btnCancel: { flex: 1, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#666', borderRadius: 12 },
+    btnConfirm: { flex: 1, padding: 14, alignItems: 'center', backgroundColor: PALETTE.gold, borderRadius: 12 },
+    btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+
+    focusSquare: {
+      position: 'absolute', width: 60, height: 60,
+      borderWidth: 2, borderColor: PALETTE.gold,
+      opacity: 0.8, borderStyle: 'dashed'
+    },
+
+    bottomListContainer: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      paddingBottom: Platform.OS === 'android' ? 40 : 30,
+    },
+  });
+  
   useEffect(() => {
     isAltModeRef.current = isAltMode;
   }, [isAltMode]);
@@ -146,7 +225,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         }} />
 
       {/* --- BARRA SUPERIOR (Colección | Flash + AA) --- */}
-      <SafeAreaView style={styles.topControlsContainer}>
+      <SafeAreaView style={[commonStyles.topBar, { marginTop: insets.top }]}>
         <View style={styles.topBar}>
 
           <Pressable
@@ -228,30 +307,31 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 };
 
 const PermissionRequest = ({ onRequest }: { onRequest: () => void }) => (
-  <View style={styles.centerContainer}>
-    <Text style={styles.textInfo}>Cámara necesaria</Text>
-    <Pressable style={styles.actionButton} onPress={onRequest}><Text style={styles.textBtn}>Permitir</Text></Pressable>
+  <View style={commonStyles.centerContainer}>
+    <Text style={commonStyles.textInfo}>Cámara necesaria</Text>
+    <Pressable style={commonStyles.actionButton} onPress={onRequest}><Text style={commonStyles.textBtn}>Permitir</Text></Pressable>
   </View>
 );
 
 const LoadingView = () => (
-  <View style={styles.centerContainer}><ActivityIndicator size="large" color={PALETTE.gold} /></View>
+  <View style={commonStyles.centerContainer}><ActivityIndicator size="large" color={PALETTE.gold} /></View>
 );
 
-const styles = StyleSheet.create({
+const commonStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' },
   textInfo: { color: PALETTE.cream, fontSize: 16, marginBottom: 20 },
   textBtn: { color: '#000', fontWeight: 'bold' },
   actionButton: { backgroundColor: PALETTE.cream, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 25 },
 
-  // BARRA SUPERIOR
-  topControlsContainer: { position: 'absolute', top: 45, left: 0, right: 0, zIndex: 50 },
-  topBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 0
+  circleButton: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: PALETTE.bgDarkGlass,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
   },
-  topRightButtons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  aaButtonActive: { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
+  aaTextTop: { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
 
   glassButton: {
     flexDirection: 'row', alignItems: 'center',
@@ -264,19 +344,15 @@ const styles = StyleSheet.create({
   glassButtonText: { color: PALETTE.cream, fontSize: 10, fontWeight: '700' },
   glassButtonIcon: { color: PALETTE.cream, fontSize: 12 },
 
-  circleButton: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: PALETTE.bgDarkGlass,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
+  topRightButtons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  topBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 0 : 0
   },
-  aaButtonActive: { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
-  aaTextTop: { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
 
-  // BOTÓN FLOTANTE MANUAL
   manualFloatingBtn: {
     position: 'absolute',
-    bottom: 150, // Lo subo para que no choque con la lista de recientes
+    bottom: 150,
     right: 20,
     width: 44, height: 44,
     borderRadius: 12,
@@ -284,7 +360,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: PALETTE.glassBorder,
     zIndex: 60,
-    // Sombra
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 5
   },
 

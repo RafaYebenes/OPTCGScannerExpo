@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PALETTE } from '../../utils/theme';
 
 interface CollectionHeaderProps {
@@ -12,6 +13,8 @@ interface CollectionHeaderProps {
   setActiveRarity: (rarity: string | null) => void;
   rarityStats: [string, number][];
 }
+
+const insets = useSafeAreaInsets();
 
 export const CollectionHeader: React.FC<CollectionHeaderProps> = ({
   stats, searchText, setSearchText, onOpenFilters, isFilterActive,
@@ -97,9 +100,9 @@ export const CollectionHeader: React.FC<CollectionHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
-  headerContainer: { marginTop: 10, marginBottom: 25, paddingHorizontal: 10 },
-  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  subTitle: { color: PALETTE.lightBlue, fontSize: 10, letterSpacing: 3, fontWeight: 'bold', marginBottom: 4 },
+  headerContainer: { marginTop: insets.top + 10, marginBottom: insets.bottom + 25, paddingHorizontal: 10 },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: insets.bottom + 15 },
+  subTitle: { color: PALETTE.lightBlue, fontSize: 10, letterSpacing: 3, fontWeight: 'bold', marginBottom: insets.bottom + 4 },
   mainTitle: { color: PALETTE.cream, fontSize: 36, fontWeight: '300', letterSpacing: 1 },
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 15, alignItems: 'center' },
   searchInputContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12, borderWidth: 1, borderColor: PALETTE.glassBorder, paddingHorizontal: 12, height: 44 },
@@ -112,12 +115,12 @@ const styles = StyleSheet.create({
   statBoxMain: { flex: 1, alignItems: 'center' },
   statNumMain: { color: PALETTE.cream, fontSize: 20, fontWeight: 'bold' },
   statNumAlt: { color: PALETTE.gold, fontSize: 20, fontWeight: 'bold' },
-  statLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 9, marginTop: 2, fontWeight: '700' },
-  statLabelAlt: { color: PALETTE.gold, fontSize: 9, marginTop: 2, fontWeight: '700' },
+  statLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 9, marginTop: insets.top + 2, fontWeight: '700' },
+  statLabelAlt: { color: PALETTE.gold, fontSize: 9, marginTop: insets.top + 2, fontWeight: '700' },
   verticalLine: { width: 1, height: '60%', backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center' },
   rarityScrollContainer: { flexDirection: 'row' },
   rarityChip: { alignItems: 'center', justifyContent: 'center', minWidth: 45, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: 'rgba(0, 48, 73, 0.5)', borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   rarityChipActive: { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
   rarityCount: { color: PALETTE.cream, fontSize: 14, fontWeight: 'bold' },
-  rarityLabel: { color: PALETTE.lightBlue, fontSize: 9, fontWeight: '700', marginTop: 1 },
+  rarityLabel: { color: PALETTE.lightBlue, fontSize: 9, fontWeight: '700', marginTop: insets.top + 1 },
 });

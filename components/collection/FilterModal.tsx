@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { PALETTE } from '../../utils/theme';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface FilterModalProps {
   visible: boolean;
@@ -13,6 +14,8 @@ interface FilterModalProps {
   setFilterSet: (set: string | null) => void;
   onClearAll: () => void;
 }
+
+const insets = useSafeAreaInsets();
 
 export const FilterModal: React.FC<FilterModalProps> = ({
   visible, onClose, availableColors, filterColor, setFilterColor,
@@ -71,12 +74,12 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: PALETTE.deepOcean, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%', borderTopWidth: 1, borderColor: PALETTE.gold },
   modalTitle: { color: PALETTE.gold, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, letterSpacing: 2 },
-  filterSectionTitle: { color: PALETTE.lightBlue, fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 10 },
+  filterSectionTitle: { color: PALETTE.lightBlue, fontSize: 12, fontWeight: 'bold', marginBottom: insets.bottom + 10, marginTop: insets.top + 10 },
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: PALETTE.glassBorder, backgroundColor: 'rgba(0,0,0,0.2)' },
   filterChipActive: { backgroundColor: PALETTE.cream, borderColor: PALETTE.cream },
   filterChipText: { color: PALETTE.cream, fontSize: 12, fontWeight: '600' },
-  modalActions: { flexDirection: 'row', marginTop: 30, gap: 15 },
+  modalActions: { flexDirection: 'row', marginTop: insets.top +30, gap: 15 },
   modalBtnClear: { flex: 1, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: PALETTE.red, borderRadius: 12 },
   modalBtnTextClear: { color: PALETTE.red, fontWeight: 'bold' },
   modalBtnApply: { flex: 1, padding: 14, alignItems: 'center', backgroundColor: PALETTE.gold, borderRadius: 12 },
