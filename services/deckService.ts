@@ -1,5 +1,6 @@
-// services/deckService.ts
+// src/services/deckService.ts
 import type { CardRow, DeckDetail, DeckRow } from "../types/deck.types";
+import { parseDecklistText, resolveDeckImport } from "../utils/deckImport";
 import {
   colorsSubsetOfLeader,
   isLeaderType,
@@ -7,9 +8,7 @@ import {
 } from "../utils/deckUtils";
 import { supabaseService } from "./supabaseService";
 
-export const deckRules = {
-  validate: validateDeck,
-};
+export const deckRules = { validate: validateDeck };
 
 const required = <T>(v: T | null | undefined, msg: string): T => {
   if (v === null || v === undefined) throw new Error(msg);
@@ -46,11 +45,11 @@ export const deckService = {
     const leader = (await supabaseService.getCardByIdForDeck(
       leaderCardId,
     )) as CardRow;
-    if (!isLeaderType(leader.type))
+    if (!isLeaderType(leader.type)) {
       throw new Error(
         "Solo puedes seleccionar una carta de tipo LEADER como líder.",
       );
-
+    }
     await supabaseService.setDeckLeader(deckId, leaderCardId);
   },
 
@@ -74,22 +73,13 @@ export const deckService = {
     }
 
     const cards = await supabaseService.getDeckCards(deckId);
-
-    return {
-      deck,
-      leader,
-      cards: cards as any,
-    };
+    return { deck, leader, cards: cards as any };
   },
 
   async getCardById(cardId: string): Promise<CardRow> {
     return (await supabaseService.getCardByIdForDeck(cardId)) as CardRow;
   },
 
-  /**
-   * Write rápido: 1 request máximo (upsert/delete).
-   * La UI ya hace guardrails (50 / colores / 4 por code).
-   */
   async writeDeckCardQuantity(
     deckId: string,
     cardId: string,
@@ -102,10 +92,6 @@ export const deckService = {
     await supabaseService.upsertDeckCardQuantity(deckId, cardId, quantity);
   },
 
-  /**
-   * Método “seguro” (guardrails en service) para usos futuros.
-   * NOTA: es más lento porque calcula con getDeck().
-   */
   async setCardQuantity(
     deckId: string,
     cardId: string,
@@ -150,5 +136,57 @@ export const deckService = {
       throw new Error(`Máximo 4 copias por carta (${pickedCode}).`);
 
     await supabaseService.upsertDeckCardQuantity(deckId, cardId, safeQty);
+  },
+
+  /**
+   * Importa un mazo desde texto (OPTD / Limitless) o JSON.
+   * - Resuelve IDs desde el catálogo local (cardCatalog).
+   * - Inserta deck_cards en bulk (1 request).
+   * - Si falla, rollback (borra el deck).
+   */
+  async importDeck(
+    rawText: string,
+    catalog: CardRow[],
+    opts?: { name?: string },
+  ): Promise<DeckRow> {
+    const userId = await this.getCurrentUserId();
+    if (!userId) throw new Error("No autenticado");
+
+    const parsed = parseDecklistText(rawText);
+    const resolved = resolveDeckImport(parsed, catalog, opts?.name);
+
+    if (resolved.errors.length > 0) {
+      throw new Error(resolved.errors.slice(0, 6).join("\n"));
+    }
+
+    const leader = required(resolved.leader, "No se pudo resolver el Leader.");
+
+    let deck: DeckRow | null = null;
+
+    try {
+      deck = (await supabaseService.createDeckRow(
+        userId,
+        resolved.name,
+      )) as DeckRow;
+
+      await supabaseService.setDeckLeader(deck.id, leader.id);
+
+      await supabaseService.upsertDeckCardsBulk(
+        deck.id,
+        resolved.main.map((x) => ({
+          card_id: x.card.id,
+          quantity: x.quantity,
+        })),
+      );
+
+      return deck;
+    } catch (e) {
+      if (deck?.id) {
+        try {
+          await supabaseService.deleteDeckRow(deck.id);
+        } catch {}
+      }
+      throw e;
+    }
   },
 };

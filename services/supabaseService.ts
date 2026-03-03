@@ -354,4 +354,25 @@ export const supabaseService = {
 
     if (error) throw error;
   },
+
+  // Bulk upsert de deck_cards (1 request).
+  // Útil para importación de mazos.
+  async upsertDeckCardsBulk(
+    deckId: string,
+    rows: { card_id: string; quantity: number }[],
+  ) {
+    if (!rows || rows.length === 0) return;
+
+    const payload = rows.map((r) => ({
+      deck_id: deckId,
+      card_id: r.card_id,
+      quantity: Math.min(4, Math.max(1, Math.floor(r.quantity))),
+    }));
+
+    const { error } = await supabase
+      .from("deck_cards")
+      .upsert(payload, { onConflict: "deck_id,card_id" });
+
+    if (error) throw error;
+  },
 };

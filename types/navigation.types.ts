@@ -1,4 +1,5 @@
 import { RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ScannedCard } from "./card.types";
 
@@ -14,6 +15,7 @@ export type RootStackParamList = {
   DecksList: undefined;
   DeckBuilder: { deckId: string };
   CardSelector: { deckId: string; mode: "leader" | "main" };
+  ImportDeck: undefined;
 };
 
 export type ScannerScreenNavigationProp = StackNavigationProp<
@@ -71,4 +73,8 @@ export type CardSelectorScreenNavigationProp = StackNavigationProp<
 export type CardSelectorScreenRouteProp = RouteProp<
   RootStackParamList,
   "CardSelector"
+>;
+export type ImportDeckScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "ImportDeck"
 >;

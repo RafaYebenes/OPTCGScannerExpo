@@ -39,3 +39,29 @@ export type DeckValidationResult = {
   errors: string[];
   stats: { mainCount: number; total: number };
 };
+
+// ===== Import deck types =====
+export type ParsedDecklistItem = {
+  code: string;
+  quantity: number;
+  name?: string;
+  isLeaderHint?: boolean;
+  rawLines: string[];
+};
+
+export type ParsedDecklist = {
+  name?: string;
+  items: ParsedDecklistItem[];
+  errors: string[];
+  warnings: string[];
+};
+
+export type ResolvedDeckImport = {
+  name: string;
+  leader: CardRow | null;
+  main: { card: CardRow; quantity: number }[];
+  missing: { code: string; quantity: number; name?: string }[];
+  errors: string[];
+  warnings: string[];
+  stats: { mainCount: number; total: number };
+};

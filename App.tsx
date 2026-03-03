@@ -14,6 +14,7 @@ import { CollectionScreen } from "./screens/collection/CollectionScreen";
 import { CardSelectorScreen } from "./screens/decks/CardSelectorScreen";
 import { DeckBuilderScreen } from "./screens/decks/DeckBuilderScreen";
 import { DecksListScreen } from "./screens/decks/DecksListScreen";
+import { ImportDeckScreen } from "./screens/decks/ImportDeckScreen";
 import { LoginScreen } from "./screens/login/LoginScreen";
 import { ScannerScreen } from "./screens/scanner/ScannerScreen";
 
@@ -68,6 +69,7 @@ const NavigationContent = () => {
               component={CardSelectorScreen}
               options={{ animation: "slide_from_bottom" }}
             />
+            <Stack.Screen name="ImportDeck" component={ImportDeckScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

@@ -1,3 +1,4 @@
+// src/screens/decks/DecksListScreen.tsx
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useLayoutEffect, useState } from "react";
@@ -54,6 +55,8 @@ export const DecksListScreen: React.FC = () => {
     }
   };
 
+  const onImport = () => navigation.navigate("ImportDeck");
+
   const onOpen = (deckId: string) =>
     navigation.navigate("DeckBuilder", { deckId });
 
@@ -85,9 +88,16 @@ export const DecksListScreen: React.FC = () => {
 
         <View style={styles.headerRow}>
           <Text style={styles.title}>Mazos</Text>
-          <Pressable onPress={onCreate} style={styles.primaryBtn}>
-            <Text style={styles.primaryBtnText}>+ Nuevo</Text>
-          </Pressable>
+
+          <View style={styles.actionsRow}>
+            <Pressable onPress={onImport} style={styles.secondaryBtn}>
+              <Text style={styles.secondaryBtnText}>Importar</Text>
+            </Pressable>
+
+            <Pressable onPress={onCreate} style={styles.primaryBtn}>
+              <Text style={styles.primaryBtnText}>+ Nuevo</Text>
+            </Pressable>
+          </View>
         </View>
 
         {loading ? (
@@ -141,7 +151,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  actionsRow: { flexDirection: "row", alignItems: "center" },
   title: { color: PALETTE.cream, fontSize: 22, fontWeight: "900" },
+
+  secondaryBtn: {
+    backgroundColor: PALETTE.whiteTransparent,
+    borderWidth: 1,
+    borderColor: PALETTE.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  secondaryBtnText: { color: PALETTE.cream, fontWeight: "900" },
+
   primaryBtn: {
     backgroundColor: PALETTE.cream,
     paddingHorizontal: 12,
@@ -149,6 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   primaryBtnText: { color: PALETTE.deepOcean, fontWeight: "900" },
+
   listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 24 },
   card: {
     backgroundColor: PALETTE.glass,
