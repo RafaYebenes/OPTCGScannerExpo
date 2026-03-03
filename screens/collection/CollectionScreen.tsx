@@ -1,7 +1,10 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StatusBar, StyleSheet, Text, View } from 'react-native';
+
+// new SafeAreaView
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // COMPONENTES & CONTEXTOS
 import { CardGridItem } from '../../components/collection/CardGridItem';

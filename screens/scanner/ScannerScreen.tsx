@@ -5,7 +5,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -24,6 +23,9 @@ import { useCardScanner } from '../../hooks/useCardScanner';
 import { useCardStorage } from '../../hooks/useCardStorage';
 import { ScannerScreenProps } from '../../types/navigation.types';
 import { SCANNER_CONFIG } from '../../utils/constants';
+
+//new SafeAreaView
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PALETTE = {
   bgDarkGlass: 'rgba(0, 21, 37, 0.9)',

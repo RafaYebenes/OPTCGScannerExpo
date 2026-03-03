@@ -7,13 +7,13 @@ import {
     Image,
     Linking,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCollection } from '../../context/CollectionContext';
 import { cardCodeParser } from '../../utils/cardCodeParser';
 
@@ -294,14 +294,6 @@ const styles = StyleSheet.create({
     specsContainer: {
         marginBottom: 20,
     },
-    fullWidthSpec: {
-        backgroundColor: 'rgba(253, 240, 213, 0.05)',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 10,
-        borderLeftWidth: 2,
-        borderLeftColor: THEME.gold,
-    },
     specsChipsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -409,6 +401,7 @@ const styles = StyleSheet.create({
     specBox: { alignItems: 'center', flex: 1 },
 
     effectContainer: { backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 },
+    effectTextWrapper: {},
 
     // FOOTER
     footer: {
