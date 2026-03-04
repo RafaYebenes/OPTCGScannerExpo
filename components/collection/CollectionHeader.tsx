@@ -8,10 +8,12 @@ interface CollectionHeaderProps {
   searchText: string;
   setSearchText: (text: string) => void;
   onOpenFilters: () => void;
+  hasActiveFilters: boolean;
   isFilterActive: boolean;
   activeRarity: string | null;
   setActiveRarity: (rarity: string | null) => void;
   rarityStats: [string, number][];
+  onFilterPress?: () => void;
 }
 
 const insets = useSafeAreaInsets();

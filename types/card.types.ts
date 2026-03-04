@@ -24,3 +24,10 @@ export interface ScannerConfig {
   throttleMs: number;
   cooldownMs: number;
 }
+
+export interface DetectionState {
+  isDetecting: boolean;
+  currentCode: string | null;
+  confirmationCount: number;
+  lastSavedCode: string | null;
+}
