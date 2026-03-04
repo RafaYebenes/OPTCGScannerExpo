@@ -1,15 +1,3 @@
-/**
- * CardDetailScreen — migrada a ScreenContainer
- *
- * Cambios respecto a la versión anterior:
- *  - Eliminado <SafeAreaView> de react-native y su import
- *  - Eliminado paddingTop: StatusBar.currentHeight || 0 del container (Android hack)
- *  - Eliminado paddingBottom: 43 hardcodeado en footer (iOS home indicator hack)
- *  - ScreenContainer con edges={['top','left','right']} gestiona el inset superior
- *  - El footer usa useSafeAreaInsets() para el paddingBottom dinámico correcto
- *  - LinearGradient sigue siendo el fondo visual con StyleSheet.absoluteFill
- */
-
 import { supabaseService } from '@/services/supabaseService';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
@@ -30,7 +18,6 @@ import { ScreenContainer } from '../../components/layout/ScreenContainer';
 import { useCollection } from '../../context/CollectionContext';
 import { cardCodeParser } from '../../utils/cardCodeParser';
 
-// --- PALETA ---
 const THEME = {
     deepOcean: "#001525",
     navy: "#003049",
@@ -46,42 +33,36 @@ const { width } = Dimensions.get('window');
 
 export const CardDetailScreen = ({ route, navigation }: any) => {
     const item = route.params?.item;
+
+    // ✅ TODOS los hooks antes de cualquier return condicional
     const [fullCardData, setFullCardData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-
-    // ── Insets para el footer fijo ──────────────────────────────────────────
-    // Reemplaza el paddingBottom: 43 hardcodeado.
-    // En iPhone con notch: bottom ≈ 34. En Android: bottom ≈ 0.
+    const [qty, setQty] = useState(item?.quantity ?? 0);
     const insets = useSafeAreaInsets();
-
-    // --- PROTECCIÓN CONTRA CRASHES ---
-    if (!item) {
-        return (
-            <ScreenContainer bg={THEME.deepOcean} edges={['top', 'bottom']}>
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>⚠️ No se ha seleccionado ninguna carta</Text>
-                    <Pressable
-                        onPress={() => navigation.goBack()}
-                        style={styles.errorBtn}
-                    >
-                        <Text style={{ fontWeight: 'bold' }}>VOLVER</Text>
-                    </Pressable>
-                </View>
-            </ScreenContainer>
-        );
-    }
-
     const { updateQuantity, deleteCard } = useCollection();
-    const [qty, setQty] = useState(item.quantity);
 
     useEffect(() => {
-        if (item.card) {
+        if (item?.card) {
             supabaseService.getBaseCardByCode(item.card.code)
                 .then(card => { if (card) setFullCardData(card); })
                 .catch(e => console.warn("Error obteniendo datos extendidos:", e))
                 .finally(() => setLoading(false));
         }
     }, [item]);
+
+    // ✅ return condicional DESPUÉS de todos los hooks
+    if (!item) {
+        return (
+            <ScreenContainer bg={THEME.deepOcean} edges={['top', 'bottom']}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>⚠️ No se ha seleccionado ninguna carta</Text>
+                    <Pressable onPress={() => navigation.goBack()} style={styles.errorBtn}>
+                        <Text style={{ fontWeight: 'bold' }}>VOLVER</Text>
+                    </Pressable>
+                </View>
+            </ScreenContainer>
+        );
+    }
 
     const cardData = fullCardData || item.card || {};
     const isAlt = item.is_foil;
@@ -155,17 +136,9 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        /*
-         * bg='transparent' → LinearGradient con absoluteFill sigue siendo el fondo
-         * edges={['top','left','right']} → safe-area top gestionado aquí
-         * El bottom NO lo gestionamos aquí porque el footer fijo usa
-         * useSafeAreaInsets() directamente para su paddingBottom
-         * padding={0} → el scroll y el footer tienen su propio padding
-         */
         <View style={styles.root}>
             <StatusBar barStyle="light-content" />
 
-            {/* Fondo degradado */}
             <LinearGradient
                 colors={[THEME.deepOcean, THEME.navy, '#0f172a']}
                 style={StyleSheet.absoluteFill}
@@ -176,7 +149,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                 edges={['top', 'left', 'right']}
                 padding={0}
             >
-                {/* HEADER NAV */}
                 <View style={styles.navBar}>
                     <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Text style={styles.backText}>◀ VOLVER</Text>
@@ -185,7 +157,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
 
-                    {/* 1. IMAGEN */}
                     <View style={styles.imageContainer}>
                         {cardData.image_url ? (
                             <Image
@@ -203,7 +174,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                         </View>
                     </View>
 
-                    {/* 2. BLOQUE DE INFORMACIÓN */}
                     <View style={styles.infoCard}>
                         <Text style={styles.cardCode}>{cardData.code}</Text>
                         <Text style={styles.cardName}>{cardData.name}</Text>
@@ -252,10 +222,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                     </View>
                 </ScrollView>
 
-                {/* 3. FOOTER FIJO
-                    paddingBottom dinámico via useSafeAreaInsets().bottom
-                    En lugar del 43 hardcodeado anterior.
-                */}
                 <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
                     <View style={styles.priceColumn}>
                         <Text style={styles.marketLabel}>MERCADO (AVG)</Text>
@@ -286,28 +252,22 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-    // ── root: reemplaza el container anterior que tenía paddingTop: StatusBar.currentHeight ──
-    root: { flex: 1, backgroundColor: THEME.deepOcean },
-
-    errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    errorText: { color: THEME.cream, marginBottom: 20 },
-    errorBtn: { padding: 10, backgroundColor: THEME.cream, borderRadius: 8 },
-
-    scrollContent: { paddingBottom: 150 },
-
-    navBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
-    backButton: { padding: 8 },
-    backText: { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
-
-    // IMAGEN
-    imageContainer: { alignItems: 'center', marginTop: 10, marginBottom: 20 },
+    root:            { flex: 1, backgroundColor: THEME.deepOcean },
+    errorContainer:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    errorText:       { color: THEME.cream, marginBottom: 20 },
+    errorBtn:        { padding: 10, backgroundColor: THEME.cream, borderRadius: 8 },
+    scrollContent:   { paddingBottom: 150 },
+    navBar:          { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+    backButton:      { padding: 8 },
+    backText:        { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
+    imageContainer:  { alignItems: 'center', marginTop: 10, marginBottom: 20 },
     cardImage: {
         width: width * 0.65,
         height: (width * 0.65) * (88 / 63),
         borderRadius: 12,
         borderWidth: 1, borderColor: 'rgba(0,0,0,0.5)'
     },
-    altBorder: { borderWidth: 3, borderColor: THEME.gold },
+    altBorder:       { borderWidth: 3, borderColor: THEME.gold },
     placeholderImage: {
         width: width * 0.65, height: (width * 0.65) * (88 / 63),
         backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12,
@@ -320,56 +280,46 @@ const styles = StyleSheet.create({
         borderRadius: 12, borderWidth: 1, borderColor: THEME.gold,
         shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4
     },
-    rarityText: { color: THEME.gold, fontWeight: '900', fontSize: 12 },
-
-    // INFO CARD
+    rarityText:      { color: THEME.gold, fontWeight: '900', fontSize: 12 },
     infoCard: {
         backgroundColor: THEME.glass,
-        marginHorizontal: 16,
-        borderRadius: 16,
-        padding: 20,
+        marginHorizontal: 16, borderRadius: 16, padding: 20,
         borderWidth: 1, borderColor: THEME.glassBorder,
     },
-    cardCode: { color: THEME.gold, fontSize: 12, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
-    cardName: { color: THEME.cream, fontSize: 24, fontWeight: '900', textAlign: 'center', marginVertical: 4, textTransform: 'uppercase' },
-    setName: { color: 'rgba(253, 240, 213, 0.6)', fontSize: 12, fontWeight: '600', textAlign: 'center', letterSpacing: 1 },
-    divider: { height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)', marginVertical: 15 },
-
-    // SPECS
-    specsContainer: { marginBottom: 20 },
+    cardCode:        { color: THEME.gold, fontSize: 12, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
+    cardName:        { color: THEME.cream, fontSize: 24, fontWeight: '900', textAlign: 'center', marginVertical: 4, textTransform: 'uppercase' },
+    setName:         { color: 'rgba(253, 240, 213, 0.6)', fontSize: 12, fontWeight: '600', textAlign: 'center', letterSpacing: 1 },
+    divider:         { height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)', marginVertical: 15 },
+    specsContainer:  { marginBottom: 20 },
     fullWidthSpec: {
         backgroundColor: 'rgba(253, 240, 213, 0.05)',
         padding: 12, borderRadius: 8, marginBottom: 10,
         borderLeftWidth: 3, borderLeftColor: THEME.gold,
     },
-    specsChipsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+    specsChipsRow:   { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
     specChip: {
         flex: 1, paddingVertical: 8, paddingHorizontal: 4,
         borderRadius: 8, alignItems: 'center',
         borderWidth: 1, borderColor: 'rgba(253, 240, 213, 0.1)',
     },
-    specLabel: { color: 'rgba(253, 240, 213, 0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
-    specValue: { color: THEME.cream, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
-    typeBadgeContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+    specLabel:           { color: 'rgba(253, 240, 213, 0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
+    specValue:           { color: THEME.cream, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+    typeBadgeContainer:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
     typeBadge: {
         backgroundColor: '#0f4970', paddingHorizontal: 10, paddingVertical: 4,
         borderRadius: 4, borderWidth: 1, borderColor: 'rgba(253, 240, 213, 0.2)',
     },
-    typeBadgeText: { color: THEME.cream, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-
-    // EFECTO
+    typeBadgeText:   { color: THEME.cream, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
     effectContainer: { backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 },
     effectTextWrapper: { marginTop: 6 },
-    effectText: { color: THEME.cream, fontSize: 13, lineHeight: 20, opacity: 0.9 },
-    inlineBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginHorizontal: 2 },
-    defaultBadge: { backgroundColor: THEME.navy },
-    donBadge: { backgroundColor: THEME.red },
-    keywordBadge: { backgroundColor: '#0f4970' },
-    badgeText: { color: THEME.cream, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-    italicText: { color: 'rgba(253,240,213,0.6)', fontStyle: 'italic' },
-    boldCondition: { color: THEME.gold, fontWeight: '800' },
-
-    // FOOTER — paddingBottom ya NO es fijo, se calcula con useSafeAreaInsets()
+    effectText:      { color: THEME.cream, fontSize: 13, lineHeight: 20, opacity: 0.9 },
+    inlineBadge:     { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginHorizontal: 2 },
+    defaultBadge:    { backgroundColor: THEME.navy },
+    donBadge:        { backgroundColor: THEME.red },
+    keywordBadge:    { backgroundColor: '#0f4970' },
+    badgeText:       { color: THEME.cream, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+    italicText:      { color: 'rgba(253,240,213,0.6)', fontStyle: 'italic' },
+    boldCondition:   { color: THEME.gold, fontWeight: '800' },
     footer: {
         position: 'absolute', bottom: 0, left: 0, right: 0,
         backgroundColor: '#000F1A',
@@ -377,19 +327,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row', padding: 10,
         justifyContent: 'space-between', alignItems: 'center',
     },
-    priceColumn: { flex: 1, paddingRight: 20 },
-    marketLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2 },
-    priceText: { color: THEME.cream, fontSize: 22, fontWeight: 'bold' },
-    cmButton: { marginTop: 8 },
-    cmButtonText: { color: THEME.cardmarketBlue, fontSize: 12, fontWeight: 'bold' },
-    qtyContainer: { alignItems: 'flex-end' },
-    qtyLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 6 },
+    priceColumn:     { flex: 1, paddingRight: 20 },
+    marketLabel:     { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2 },
+    priceText:       { color: THEME.cream, fontSize: 22, fontWeight: 'bold' },
+    cmButton:        { marginTop: 8 },
+    cmButtonText:    { color: THEME.cardmarketBlue, fontSize: 12, fontWeight: 'bold' },
+    qtyContainer:    { alignItems: 'flex-end' },
+    qtyLabel:        { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 6 },
     qtyControls: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: THEME.navy, borderRadius: 20,
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
     },
-    qtyBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    qtyBtnText: { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
-    qtyValue: { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
+    qtyBtn:          { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    qtyBtnText:      { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
+    qtyValue:        { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
 });

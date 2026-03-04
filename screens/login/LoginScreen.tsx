@@ -13,13 +13,10 @@ import {
   TextInput,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
-const insets = useSafeAreaInsets();
 
-// --- PALETA ONE PIECE ---
 const THEME = {
   deepOcean: "#001525",
   navy: "#003049",
@@ -35,7 +32,7 @@ export const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false); // false = Login, true = Registro
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -46,12 +43,10 @@ export const LoginScreen = () => {
     setLoading(true);
     try {
       if (isSignUp) {
-        // REGISTRO
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         Alert.alert('¡Bienvenido a bordo!', 'Revisa tu correo de inmediato para confirmar tu cuenta.');
       } else {
-        // LOGIN
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
@@ -68,13 +63,11 @@ export const LoginScreen = () => {
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        
-        {/* 1. HEADER / LOGO */}
         <View style={styles.logoContainer}>
           <View style={styles.iconCircle}>
             <Text style={styles.logoIcon}>☠️</Text>
@@ -83,15 +76,11 @@ export const LoginScreen = () => {
           <Text style={styles.appSubtitle}>COLLECTOR'S LOG</Text>
         </View>
 
-        {/* 2. TARJETA DE LOGIN (Glassmorphism) */}
         <View style={styles.glassCard}>
-          
-          {/* TÍTULO DINÁMICO */}
           <Text style={styles.cardTitle}>
             {isSignUp ? 'RECLUTAMIENTO' : 'IDENTIFICACIÓN'}
           </Text>
 
-          {/* INPUTS */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>NAKAMA ID (EMAIL)</Text>
             <TextInput
@@ -117,9 +106,8 @@ export const LoginScreen = () => {
             />
           </View>
 
-          {/* BOTÓN PRINCIPAL */}
-          <Pressable 
-            style={({pressed}) => [styles.mainButton, pressed && styles.btnPressed]}
+          <Pressable
+            style={({ pressed }) => [styles.mainButton, pressed && styles.btnPressed]}
             onPress={handleAuth}
             disabled={loading}
           >
@@ -132,100 +120,69 @@ export const LoginScreen = () => {
             )}
           </Pressable>
 
-          {/* SEPARADOR */}
           <View style={styles.divider}>
             <View style={styles.line} />
             <Text style={styles.orText}>O</Text>
             <View style={styles.line} />
           </View>
 
-          {/* BOTÓN SECUNDARIO (Toggle) */}
-          <Pressable 
-            onPress={() => setIsSignUp(!isSignUp)} 
-            style={styles.secondaryButton}
-          >
+          <Pressable onPress={() => setIsSignUp(!isSignUp)} style={styles.secondaryButton}>
             <Text style={styles.secondaryText}>
-              {isSignUp 
-                ? '¿Ya tienes cuenta? Inicia Sesión' 
+              {isSignUp
+                ? '¿Ya tienes cuenta? Inicia Sesión'
                 : '¿Nuevo pirata? Regístrate'}
             </Text>
           </Pressable>
         </View>
-
       </KeyboardAvoidingView>
-      
-      {/* Footer Decorativo */}
-      <Text style={styles.footerText}>DEV.KOMP CORP © 2024</Text>
 
+      <Text style={styles.footerText}>DEV.KOMP CORP © 2024</Text>
     </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  keyboardView: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  
-  // LOGO
-  logoContainer: { alignItems: 'center', marginBottom: insets.bottom + 30 },
+  container:       { flex: 1 },
+  keyboardView:    { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+  logoContainer:   { alignItems: 'center', marginBottom: 30 },
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: THEME.cream,
-    marginBottom: insets.bottom + 16,
+    marginBottom: 16,
     shadowColor: THEME.gold, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 10,
   },
-  logoIcon: { fontSize: 40 },
-  appTitle: { color: THEME.cream, fontSize: 36, fontWeight: '900', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  appSubtitle: { color: THEME.gold, fontSize: 10, fontWeight: 'bold', letterSpacing: 6, marginTop: insets.top + 4 },
-
-  // CARD
+  logoIcon:        { fontSize: 40 },
+  appTitle:        { color: THEME.cream, fontSize: 36, fontWeight: '900', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+  appSubtitle:     { color: THEME.gold, fontSize: 10, fontWeight: 'bold', letterSpacing: 6, marginTop: 4 },
   glassCard: {
     backgroundColor: THEME.glass,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: THEME.glassBorder,
+    borderRadius: 24, padding: 24,
+    borderWidth: 1, borderColor: THEME.glassBorder,
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20,
   },
-  cardTitle: { color: THEME.cream, fontSize: 14, fontWeight: 'bold', letterSpacing: 2, textAlign: 'center', marginBottom: 24, opacity: 0.9 },
-
-  // INPUTS
-  inputContainer: { marginBottom: 16 },
-  label: { color: THEME.gold, fontSize: 9, fontWeight: '800', marginBottom: 6, letterSpacing: 0.5, marginLeft: 4 },
+  cardTitle:       { color: THEME.cream, fontSize: 14, fontWeight: 'bold', letterSpacing: 2, textAlign: 'center', marginBottom: 24, opacity: 0.9 },
+  inputContainer:  { marginBottom: 16 },
+  label:           { color: THEME.gold, fontSize: 9, fontWeight: '800', marginBottom: 6, letterSpacing: 0.5, marginLeft: 4 },
   input: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    color: THEME.cream,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    fontSize: 16,
-    fontWeight: '500',
+    borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
+    color: THEME.cream, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    fontSize: 16, fontWeight: '500',
   },
-
-  // BOTONES
   mainButton: {
-    backgroundColor: THEME.cream,
-    borderRadius: 30,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: insets.bottom + 10,
+    backgroundColor: THEME.cream, borderRadius: 30,
+    paddingVertical: 16, alignItems: 'center', marginTop: 10,
     shadowColor: THEME.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
   },
-  btnPressed: { transform: [{scale: 0.98}], opacity: 0.9 },
-  mainButtonText: { color: THEME.navy, fontWeight: '900', fontSize: 14, letterSpacing: 1.5 },
-
-  // DIVIDER
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  line: { flex: 1, height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)' },
-  orText: { color: 'rgba(253, 240, 213, 0.3)', paddingHorizontal: 10, fontSize: 10, fontWeight: 'bold' },
-
-  // SECONDARY
+  btnPressed:      { transform: [{ scale: 0.98 }], opacity: 0.9 },
+  mainButtonText:  { color: THEME.navy, fontWeight: '900', fontSize: 14, letterSpacing: 1.5 },
+  divider:         { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  line:            { flex: 1, height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)' },
+  orText:          { color: 'rgba(253, 240, 213, 0.3)', paddingHorizontal: 10, fontSize: 10, fontWeight: 'bold' },
   secondaryButton: { alignItems: 'center', paddingVertical: 8 },
-  secondaryText: { color: THEME.gold, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
-
+  secondaryText:   { color: THEME.gold, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
   footerText: {
     position: 'absolute', bottom: 30, width: '100%', textAlign: 'center',
     color: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: '600', letterSpacing: 1

@@ -1,7 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { ActivityIndicator, StatusBar, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Contextos
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -16,26 +17,20 @@ import { ScannerScreen } from './screens/scanner/ScannerScreen';
 // Tipos
 import { RootStackParamList } from './types/navigation.types';
 
-//New safeAreaView
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const insets = useSafeAreaInsets();
+
 const NavigationContent = () => {
   const { user, loading } = useAuth();
 
-  // 1. SI ESTÁ CARGANDO -> SPINNER
   if (loading) {
     return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
-          <ActivityIndicator size="large" color="#fdf0d5" />
-          <Text style={{ color: '#fdf0d5', marginTop: insets.top + 20 }}>Iniciando...</Text>
-        </View>
-      </SafeAreaProvider>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
+        <ActivityIndicator size="large" color="#fdf0d5" />
+        <Text style={{ color: '#fdf0d5', marginTop: 20 }}>Iniciando...</Text>
+      </View>
     );
   }
 
-  // 2. SI YA TERMINÓ DE CARGAR -> NAVEGACIÓN
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -59,11 +54,12 @@ const NavigationContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CollectionProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <NavigationContent />
-      </CollectionProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CollectionProvider>
+          <NavigationContent />
+        </CollectionProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

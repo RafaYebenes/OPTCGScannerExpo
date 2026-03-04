@@ -1,23 +1,11 @@
-/**
- * CollectionScreen — migrada a ScreenContainer
- *
- * Cambios respecto a la versión anterior:
- *  - Se elimina el <SafeAreaView> manual y su import de react-native
- *  - Se elimina el paddingTop: 40 hardcodeado en mainContainer
- *  - Se usa ScreenContainer con edges={['top','left','right']} para dejar
- *    libre el bottom (lo gestiona el FlatList con paddingBottom: 100)
- *  - El bg='transparent' permite que LinearGradient siga siendo el fondo
- */
-
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 import { CardGridItem } from '../../components/collection/CardGridItem';
 import { CollectionHeader } from '../../components/collection/CollectionHeader';
 import { FilterModal } from '../../components/collection/FilterModal';
-// ── NUEVO ──
 import { ScreenContainer } from '../../components/layout/ScreenContainer';
 import { useCollection } from '../../context/CollectionContext';
 import { CollectionScreenProps } from '../../types/navigation.types';
@@ -28,11 +16,11 @@ const AVAILABLE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
 export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }) => {
   const { collection, stats, loading, refresh, deleteCard } = useCollection();
 
-  const [searchText, setSearchText] = useState('');
-  const [activeRarity, setActiveRarity] = useState<string | null>(null);
+  const [searchText, setSearchText]       = useState('');
+  const [activeRarity, setActiveRarity]   = useState<string | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filterColor, setFilterColor] = useState<string | null>(null);
-  const [filterSet, setFilterSet] = useState<string | null>(null);
+  const [filterColor, setFilterColor]     = useState<string | null>(null);
+  const [filterSet, setFilterSet]         = useState<string | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -40,14 +28,13 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
   const refreshRef = useRef(refresh);
   useEffect(() => { refreshRef.current = refresh; }, [refresh]);
+  useFocusEffect(useCallback(() => { refreshRef.current(); }, []));
 
-  useFocusEffect(
-    useCallback(() => { refreshRef.current(); }, [])
-  );
-
+  // ── Filtrado ──────────────────────────────────────────────────────────────
   const filteredRawCollection = useMemo(() => {
     return collection.filter(item => {
       if (!item.card) return false;
+
       if (searchText) {
         const query = searchText.toUpperCase();
         const matchName = item.card.name.toUpperCase().includes(query);
@@ -55,92 +42,147 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         const matchSet  = item.card.set_code.toUpperCase().includes(query);
         if (!matchName && !matchCode && !matchSet) return false;
       }
+
       if (activeRarity) {
         if (activeRarity === 'AA') {
           if (!item.is_foil) return false;
         } else {
           const r = item.card.rarity ? item.card.rarity.toUpperCase() : '?';
-          if (r !== activeRarity) return false;
+          let label = r;
+          if (r === 'LEADER')      label = 'L';
+          if (r === 'COMMON')      label = 'C';
+          if (r === 'UNCOMMON')    label = 'UC';
+          if (r === 'RARE')        label = 'R';
+          if (r === 'SUPER RARE')  label = 'SR';
+          if (r === 'SECRET RARE') label = 'SEC';
+          if (r === 'PROMO')       label = 'P';
+          if (label !== activeRarity) return false;
         }
       }
-      if (filterColor && item.card.color !== filterColor) return false;
-      if (filterSet  && item.card.set_code !== filterSet)  return false;
+
+      if (filterColor && (!item.card.color || !item.card.color.includes(filterColor))) return false;
+      if (filterSet   && item.card.set_code !== filterSet) return false;
+
       return true;
     });
   }, [collection, searchText, activeRarity, filterColor, filterSet]);
 
+  // ── Agrupación visual ─────────────────────────────────────────────────────
+  // CRÍTICO: CardGridItem necesita item.image, item.code, item.quantity,
+  // item.isAltArt — estos vienen del objeto agrupado, NO del item raw
+  const groupedDisplayCollection = useMemo(() => {
+    const groups = new Map();
+    filteredRawCollection.forEach(item => {
+      const key = `${item.card.code}-${item.is_foil}`;
+      if (groups.has(key)) {
+        const existing = groups.get(key);
+        existing.quantity += 1;
+        existing.ids.push(item.id);
+      } else {
+        groups.set(key, {
+          ...item,
+          code:      item.card.code,
+          name:      item.card.name,
+          image:     item.card.image_url,   // ← CardGridItem lo usa para la imagen
+          parsedSet: item.card.set_code,
+          isAltArt:  item.is_foil,
+          quantity:  1,
+          ids:       [item.id],
+        });
+      }
+    });
+    return Array.from(groups.values());
+  }, [filteredRawCollection]);
+
+  // ── Stats de rareza (con labels normalizados) ─────────────────────────────
+  const rarityStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    collection.forEach(item => {
+      const r = item.card?.rarity ? item.card.rarity.toUpperCase() : '?';
+      let label = r;
+      if (r === 'LEADER')      label = 'L';
+      if (r === 'COMMON')      label = 'C';
+      if (r === 'UNCOMMON')    label = 'UC';
+      if (r === 'RARE')        label = 'R';
+      if (r === 'SUPER RARE')  label = 'SR';
+      if (r === 'SECRET RARE') label = 'SEC';
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    const sortOrder = ['L', 'C', 'UC', 'R', 'SR', 'SEC', 'P'];
+    return Object.entries(counts).sort((a, b) => {
+      const idxA = sortOrder.indexOf(a[0]);
+      const idxB = sortOrder.indexOf(b[0]);
+      if (idxA === -1 && idxB === -1) return a[0].localeCompare(b[0]);
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+  }, [collection]);
+
+  // ── Sets disponibles ──────────────────────────────────────────────────────
   const availableSets = useMemo(
     () => [...new Set(collection.map(i => i.card?.set_code).filter(Boolean) as string[])].sort(),
     [collection]
   );
 
-  const rarityStats = useMemo(() => {
-    const counts: Record<string, number> = {};
-    collection.forEach(item => {
-      if (!item.card) return;
-      const r = item.is_foil ? 'AA' : (item.card.rarity?.toUpperCase() ?? '?');
-      counts[r] = (counts[r] ?? 0) + 1;
-    });
-    return counts;
-  }, [collection]);
-
   const clearAllFilters = () => {
     setFilterColor(null);
     setFilterSet(null);
     setActiveRarity(null);
+    setSearchText('');
+    setShowFilterModal(false);
   };
 
   const handleDelete = (item: any) => {
-    Alert.alert('Eliminar carta', `¿Eliminar ${item.card?.name ?? item.code}?`, [
+    const idToDelete = item.ids[item.ids.length - 1];
+    Alert.alert('Gestionar carta', `¿Retirar ${item.code}?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deleteCard(item.id) },
+      { text: 'Eliminar', style: 'destructive', onPress: () => deleteCard(idToDelete) },
     ]);
   };
 
   return (
-    // LinearGradient sigue siendo el fondo visual real
     <LinearGradient
-      colors={[PALETTE.deepOcean, PALETTE.navy, PALETTE.deepOcean]}
+      colors={[PALETTE.deepOcean, PALETTE.navy, '#1e4d6b']}
       style={styles.gradient}
     >
-      {/*
-        ScreenContainer con:
-          - bg='transparent'  → el gradiente de atrás se ve
-          - edges sin 'bottom' → el FlatList ya gestiona el scroll inferior
-          - padding={0}        → el FlatList usa paddingHorizontal propio
-      */}
       <ScreenContainer
         bg="transparent"
         edges={['top', 'left', 'right']}
         padding={0}
       >
-        {loading ? (
+        <StatusBar barStyle="light-content" />
+
+        {loading && collection.length === 0 ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={PALETTE.gold} />
-            <Text style={styles.loadingText}>Cargando colección…</Text>
+            <ActivityIndicator size="large" color={PALETTE.cream} />
+            <Text style={styles.loadingText}>Cargando…</Text>
           </View>
         ) : (
           <FlatList
-            data={filteredRawCollection}
-            keyExtractor={item => item.id}
+            key={3}
+            data={groupedDisplayCollection}
+            keyExtractor={item => item.ids[0]}
             numColumns={3}
+            columnWrapperStyle={styles.columnWrapper}
+            contentContainerStyle={styles.listContent}
+            refreshing={loading}
+            onRefresh={refresh}
+            showsVerticalScrollIndicator={false}
             ListHeaderComponent={
               <CollectionHeader
                 stats={stats}
                 searchText={searchText}
                 setSearchText={setSearchText}
-                onFilterPress={() => setShowFilterModal(true)}
                 onOpenFilters={() => setShowFilterModal(true)}
+                onFilterPress={() => setShowFilterModal(true)}
                 hasActiveFilters={!!filterColor || !!filterSet}
                 isFilterActive={!!filterColor || !!filterSet}
                 activeRarity={activeRarity}
                 setActiveRarity={setActiveRarity}
-                rarityStats={Object.entries(rarityStats)}
+                rarityStats={rarityStats}
               />
             }
-            refreshing={loading}
-            onRefresh={refresh}
-            showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
               <CardGridItem
                 item={item}
@@ -158,8 +200,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
                 </Text>
               </View>
             }
-            contentContainerStyle={styles.listContent}
-            columnWrapperStyle={styles.columnWrapper}
           />
         )}
 
@@ -181,7 +221,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 
 const styles = StyleSheet.create({
   gradient:        { flex: 1 },
-  // ── paddingTop: 40 eliminado → lo gestiona ScreenContainer via safe-area ──
   listContent:     { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
   columnWrapper:   { justifyContent: 'flex-start', gap: SPACING.gap, marginBottom: SPACING.gap },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
