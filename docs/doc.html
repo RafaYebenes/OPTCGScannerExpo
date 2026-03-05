@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Documentación Técnica Completa - OPTCG Scanner</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Fira+Code:wght@400;600&display=swap');
+
+        :root {
+            --primary: #003049;
+            --secondary: #669bbc;
+            --accent: #d62828;
+            --bg: #ffffff;
+            --text: #333333;
+            --light-gray: #f4f4f9;
+            --border: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: var(--bg);
+        }
+
+        /* Portada */
+        .cover {
+            text-align: center;
+            padding: 60px 0;
+            border-bottom: 4px solid var(--primary);
+            margin-bottom: 40px;
+        }
+        .cover h1 { font-size: 3em; color: var(--primary); margin-bottom: 10px; }
+        .cover h2 { font-size: 1.5em; color: var(--secondary); font-weight: 300; }
+        .cover .meta { margin-top: 30px; font-size: 0.9em; color: #666; }
+
+        /* Estilos Generales */
+        h1, h2, h3, h4 { color: var(--primary); }
+        h2 { 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 8px; 
+            margin-top: 40px; 
+        }
+        h3 { margin-top: 25px; color: var(--secondary); }
+
+        p { margin-bottom: 15px; text-align: justify; }
+
+        /* Código */
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            border-left: 5px solid var(--accent);
+        }
+        code {
+            font-family: 'Fira Code', monospace;
+            background: var(--light-gray);
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #c7254e;
+            font-size: 0.9em;
+        }
+
+        /* Tablas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9em;
+        }
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+        }
+        th { background-color: var(--light-gray); font-weight: 700; }
+
+        /* Alertas */
+        .alert {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+
+        /* Listas */
+        ul { margin-bottom: 20px; }
+        li { margin-bottom: 5px; }
+
+        /* Impresión */
+        @media print {
+            body { padding: 0; font-size: 11pt; }
+            h2 { page-break-before: always; }
+            h1, h2, h3 { page-break-after: avoid; }
+            pre { white-space: pre-wrap; background: #f5f5f5; color: #000; }
+            .cover { page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cover">
+        <h1>OPTCG Scanner</h1>
+        <h2>Documentación Técnica del Sistema</h2>
+        <div class="meta">
+            <p><strong>Versión:</strong> 1.0.0 (Alpha)</p>
+            <p><strong>Stack:</strong> React Native Expo, TypeScript, Supabase</p>
+            <p><strong>Fecha de Generación:</strong> Octubre 2023</p>
+        </div>
+    </div>
+
+    <h3>Tabla de Contenidos</h3>
+    <ol>
+        <li>Introducción y Alcance</li>
+        <li>Instalación y Configuración del Entorno</li>
+        <li>Arquitectura del Sistema</li>
+        <li>Base de Datos (Diccionario de Datos)</li>
+        <li>Lógica del Negocio (Core)</li>
+        <li>Servicios y API</li>
+        <li>Gestión de Estado</li>
+        <li>Solución de Problemas Comunes</li>
+    </ol>
+
+    <h2>1. Introducción y Alcance</h2>
+    <p><strong>OPTCG Scanner</strong> es una solución móvil desarrollada para facilitar la gestión de inventario de cartas del juego <em>One Piece Card Game</em>. El objetivo principal es reducir la fricción de entrada de datos manual mediante el uso de tecnologías OCR (Reconocimiento Óptico de Caracteres) en tiempo real.</p>
+    
+    <h4>Funcionalidades Principales:</h4>
+    <ul>
+        <li><strong>Escaneo en tiempo real:</strong> Detección automática de códigos de set (ej: OP05-060).</li>
+        <li><strong>Soporte Alt Art / Foil:</strong> Lógica para diferenciar cartas normales de variantes raras.</li>
+        <li><strong>Gestión de Inventario:</strong> Añadir, eliminar y actualizar cantidades sincronizadas en la nube.</li>
+        <li><strong>Precios de Mercado:</strong> Visualización de precios (EUR) obtenidos de Cardmarket (datos estáticos/actualizables).</li>
+    </ul>
+
+    <h2>2. Instalación y Configuración</h2>
+    
+    <h3>Requisitos Previos</h3>
+    <ul>
+        <li>Node.js (v16 o superior)</li>
+        <li>npm o yarn</li>
+        <li>Dispositivo físico (Android/iOS) o Emulador con soporte de cámara.</li>
+        <li>Cuenta en Supabase.</li>
+    </ul>
+
+    <h3>Pasos de Instalación</h3>
+    <pre><code># 1. Clonar el repositorio
+git clone https://github.com/tu-usuario/optcg-scanner.git
+cd optcg-scanner
+
+# 2. Instalar dependencias
+npm install
+
+# 3. Configurar variables de entorno
+# Crear archivo .env en la raíz
+cp .env.example .env</code></pre>
+
+    <h3>Configuración de Entorno (.env)</h3>
+    <p>El proyecto requiere las siguientes claves para conectar con Supabase:</p>
+    <pre><code>EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key-larga-y-secreta</code></pre>
+
+    <h3>Ejecución</h3>
+    <pre><code># Iniciar servidor de desarrollo
+npx expo start
+
+# Para limpiar caché si hay errores
+npx expo start -c</code></pre>
+
+    <h2>3. Arquitectura del Sistema</h2>
+    <p>El proyecto utiliza una arquitectura basada en <strong>React Context</strong> para el estado global y una separación estricta entre UI y Lógica.</p>
+
+    <table>
+        <tr>
+            <th>Capa</th>
+            <th>Descripción</th>
+            <th>Archivos Clave</th>
+        </tr>
+        <tr>
+            <td><strong>UI (Vistas)</strong></td>
+            <td>Componentes visuales, pantallas y navegación.</td>
+            <td><code>ScannerScreen.tsx</code>, <code>CollectionScreen.tsx</code></td>
+        </tr>
+        <tr>
+            <td><strong>Lógica (Hooks)</strong></td>
+            <td>Lógica de negocio reutilizable (ej: procesar OCR).</td>
+            <td><code>useCardScanner.ts</code>, <code>useCardStorage.ts</code></td>
+        </tr>
+        <tr>
+            <td><strong>Estado (Context)</strong></td>
+            <td>Gestión de datos globales (Usuario, Colección).</td>
+            <td><code>CollectionContext.tsx</code>, <code>AuthContext.tsx</code></td>
+        </tr>
+        <tr>
+            <td><strong>Servicio</strong></td>
+            <td>Comunicación asíncrona con el Backend.</td>
+            <td><code>supabaseService.ts</code></td>
+        </tr>
+    </table>
+
+    <h2>4. Base de Datos (Diccionario de Datos)</h2>
+    <p>A continuación se detallan las sentencias DDL para recrear el esquema en PostgreSQL (Supabase).</p>
+
+    <h3>Tabla: <code>cards</code> (Catálogo Maestro)</h3>
+    <pre><code>create table public.cards (
+  id uuid default gen_random_uuid() primary key,
+  code text not null unique,  -- Índice: OP01-001
+  name text not null,
+  set_code text,              -- OP01, ST01
+  rarity text,                -- SR, L, R
+  color text,                 -- Red, Blue
+  image_url text,
+  market_price_eur numeric default 0,
+  updated_at timestamp with time zone default now()
+);
+
+create index idx_cards_code on public.cards(code);</code></pre>
+
+    <h3>Tabla: <code>user_collection</code> (Inventario)</h3>
+    <pre><code>create table public.user_collection (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  card_id uuid references public.cards(id) not null,
+  quantity integer default 1,
+  is_foil boolean default false,  -- Flag para AA/Foil
+  scanned_at timestamp with time zone default now(),
+  
+  -- Restricción: Un usuario no debería tener filas duplicadas 
+  -- para la misma carta y estado foil (opcional)
+  unique(user_id, card_id, is_foil)
+);</code></pre>
+
+    <h2>5. Lógica del Negocio (Core)</h2>
+
+    <h3>5.1 Algoritmo de Parseo (OCR)</h3>
+    <p>El archivo <code>utils/cardCodeParser.ts</code> contiene la lógica para extraer códigos válidos del "ruido" que genera el OCR.</p>
+    <div class="alert alert-info">
+        <strong>Regex Pattern:</strong> <code>/(OP|ST|EB|P)\d{2}-\d{3}/i</code>
+    </div>
+    <p>El flujo de limpieza es:</p>
+    <ol>
+        <li><strong>Normalización:</strong> Reemplazar ceros por 'O' en prefijos (ej: <code>0P01</code> -> <code>OP01</code>).</li>
+        <li><strong>Filtrado:</strong> Descartar textos de menos de 5 caracteres.</li>
+        <li><strong>Validación:</strong> Comprobar si cumple el formato <code>XX00-000</code>.</li>
+        <li><strong>Debounce:</strong> Si el código es igual al último escaneado hace menos de 2 segundos, se ignora.</li>
+    </ol>
+
+    <h3>5.2 Lógica de Variantes (Alt Art)</h3>
+    <p>Cuando el usuario activa el modo "AA" en <code>ScannerScreen</code>:</p>
+    <ol>
+        <li>El estado <code>isAltMode</code> pasa a <code>true</code>.</li>
+        <li>Se envía este booleano a <code>supabaseService.addCardToCollection</code>.</li>
+        <li>El servicio busca en la tabla <code>cards</code> si existe una variante con sufijo <code>_p1</code>, <code>_p2</code>, etc.</li>
+        <li>Si existe la variante en DB, se usa ese <code>card_id</code>. Si no, se usa el ID de la carta base pero se marca <code>is_foil = true</code> en la colección del usuario.</li>
+    </ol>
+
+    <h2>6. Servicios y API</h2>
+    <p>El archivo <code>supabaseService.ts</code> actúa como la única puerta de enlace a los datos.</p>
+
+    <table>
+        <tr>
+            <th>Método</th>
+            <th>Parámetros</th>
+            <th>Retorno</th>
+            <th>Descripción</th>
+        </tr>
+        <tr>
+            <td><code>addCardToCollection</code></td>
+            <td><code>userId</code>, <code>code</code>, <code>isFoil</code></td>
+            <td><code>{ success, data }</code></td>
+            <td>Busca la carta por código, resuelve variantes AA e inserta/actualiza.</td>
+        </tr>
+        <tr>
+            <td><code>getUserCollection</code></td>
+            <td>-</td>
+            <td><code>CollectionItem[]</code></td>
+            <td>Obtiene todas las cartas del usuario actual con un <code>JOIN</code> a la tabla cards.</td>
+        </tr>
+        <tr>
+            <td><code>updateCardQuantity</code></td>
+            <td><code>id</code>, <code>quantity</code></td>
+            <td><code>boolean</code></td>
+            <td>Actualiza cantidad. Si es <= 0, elimina la fila.</td>
+        </tr>
+    </table>
+
+    <h2>7. Solución de Problemas Comunes</h2>
+
+    <h4>Error: "Carta no encontrada en base de datos maestra"</h4>
+    <p><strong>Causa:</strong> El código escaneado (ej: OP09-001) pertenece a un set nuevo que aún no ha sido cargado en la tabla <code>cards</code>.</p>
+    <p><strong>Solución:</strong> Ejecutar el script <code>json_to_sql.py</code> con el archivo JSON más reciente para actualizar el catálogo.</p>
+
+    <h4>Error: "Network Request Failed" / Conexión DB</h4>
+    <p><strong>Causa:</strong> Supabase ha bloqueado conexiones IPv4 directas en el plan gratuito.</p>
+    <p><strong>Solución:</strong> Utilizar el <strong>Connection Pooler</strong> (Puerto 6543) en lugar del puerto directo (5432) si se conecta desde DBeaver. O usar la CLI de Supabase.</p>
+
+    <h4>La cámara no enfoca cartas brillantes (Foil)</h4>
+    <p><strong>Causa:</strong> Reflejos en la superficie de la carta confunden al OCR.</p>
+    <p><strong>Solución:</strong> Se implementó un control de <strong>Zoom</strong> (1.5x por defecto) y un botón de <strong>Flash</strong> manual para mitigar sombras y reflejos.</p>
+
+</body>
+</html>

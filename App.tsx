@@ -1,7 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { ActivityIndicator, StatusBar, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Contextos
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -21,7 +22,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const NavigationContent = () => {
   const { user, loading } = useAuth();
 
-  // 1. SI ESTÁ CARGANDO -> SPINNER
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' }}>
@@ -31,7 +31,6 @@ const NavigationContent = () => {
     );
   }
 
-  // 2. SI YA TERMINÓ DE CARGAR -> NAVEGACIÓN
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -39,8 +38,8 @@ const NavigationContent = () => {
           <>
             <Stack.Screen name="Scanner" component={ScannerScreen} />
             <Stack.Screen name="Collection" component={CollectionScreen} />
-            <Stack.Screen 
-              name="CardDetail" 
+            <Stack.Screen
+              name="CardDetail"
               component={CardDetailScreen}
               options={{ animation: 'slide_from_bottom' }}
             />
@@ -55,11 +54,12 @@ const NavigationContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CollectionProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <NavigationContent />
-      </CollectionProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CollectionProvider>
+          <NavigationContent />
+        </CollectionProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

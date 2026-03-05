@@ -7,17 +7,17 @@ import {
     Image,
     Linking,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenContainer } from '../../components/layout/ScreenContainer';
 import { useCollection } from '../../context/CollectionContext';
 import { cardCodeParser } from '../../utils/cardCodeParser';
 
-// --- PALETA ---
 const THEME = {
     deepOcean: "#001525",
     navy: "#003049",
@@ -26,54 +26,47 @@ const THEME = {
     red: "#c1121f",
     glass: "rgba(0, 30, 50, 0.7)",
     glassBorder: "rgba(253, 240, 213, 0.2)",
-    cardmarketBlue: "#00b4d8", // Color distintivo para el botón CM
+    cardmarketBlue: "#00b4d8",
 };
 
 const { width } = Dimensions.get('window');
 
 export const CardDetailScreen = ({ route, navigation }: any) => {
-    // --- PROTECCIÓN CONTRA CRASHES ---
-    // Si route.params es undefined, evitamos el error crítico
     const item = route.params?.item;
+
+    // ✅ TODOS los hooks antes de cualquier return condicional
     const [fullCardData, setFullCardData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-
-    if (!item) {
-        return (
-            <View style={{ flex: 1, backgroundColor: '#001525', justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: '#fdf0d5', marginBottom: 20 }}>⚠️ No se ha seleccionado ninguna carta</Text>
-                <Pressable onPress={() => navigation.goBack()} style={{ padding: 10, backgroundColor: '#fdf0d5', borderRadius: 8 }}>
-                    <Text style={{ fontWeight: 'bold' }}>VOLVER</Text>
-                </Pressable>
-            </View>
-        );
-    }
-    // ----------------------------------
-
+    const [qty, setQty] = useState(item?.quantity ?? 0);
+    const insets = useSafeAreaInsets();
     const { updateQuantity, deleteCard } = useCollection();
-    const [qty, setQty] = useState(item.quantity);
 
     useEffect(() => {
-        if (item.card) {
-            // Usamos el 'code' para buscar la versión "Normal" y traer todos los campos
+        if (item?.card) {
             supabaseService.getBaseCardByCode(item.card.code)
-                .then(card => {
-                    console.log("Datos completos de la carta obtenidos:", card);
-                    if (card) {
-                        setFullCardData(card);
-                    }
-                })
+                .then(card => { if (card) setFullCardData(card); })
                 .catch(e => console.warn("Error obteniendo datos extendidos:", e))
                 .finally(() => setLoading(false));
         }
     }, [item]);
 
-    // Fusionamos datos: prioridad a los datos completos de la DB, 
-    // pero usamos los de item.card mientras cargan
+    // ✅ return condicional DESPUÉS de todos los hooks
+    if (!item) {
+        return (
+            <ScreenContainer bg={THEME.deepOcean} edges={['top', 'bottom']}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>⚠️ No se ha seleccionado ninguna carta</Text>
+                    <Pressable onPress={() => navigation.goBack()} style={styles.errorBtn}>
+                        <Text style={{ fontWeight: 'bold' }}>VOLVER</Text>
+                    </Pressable>
+                </View>
+            </ScreenContainer>
+        );
+    }
+
     const cardData = fullCardData || item.card || {};
     const isAlt = item.is_foil;
 
-    // Lógica de botones
     const handleQuantity = (delta: number) => {
         const newQty = qty + delta;
         if (newQty <= 0) {
@@ -83,48 +76,40 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                 [
                     { text: "Cancelar", style: "cancel" },
                     {
-                        text: "Eliminar",
-                        style: "destructive",
-                        onPress: () => {
-                            deleteCard(item.id);
+                        text: "Eliminar", style: "destructive",
+                        onPress: async () => {
+                            await deleteCard(item.id);
                             navigation.goBack();
                         }
                     }
                 ]
             );
-        } else {
-            setQty(newQty);
-            updateQuantity(item.id, newQty);
+            return;
         }
+        setQty(newQty);
+        updateQuantity(item.id, newQty);
     };
 
     const openCardmarket = () => {
-        // AQUÍ USA TU LÓGICA DE CARDMARKET QUE YA TIENES
-        // Ejemplo placeholder:
-        const searchUrl = `https://www.cardmarket.com/en/OnePiece/Products/Search?searchString=${cardData.code}`;
-        Linking.openURL(searchUrl);
+        const url = `https://www.cardmarket.com/en/OnePiece/Cards/${cardData.code}`;
+        Linking.openURL(url).catch(() =>
+            Alert.alert('Error', 'No se pudo abrir Cardmarket')
+        );
     };
 
+    const renderFormattedEffect = (effect: string) => {
+        if (!effect) return <Text style={styles.effectText}>Sin efecto</Text>;
 
-    const renderFormattedEffect = (text: string) => {
-        if (!text) return <Text style={styles.effectText}>Sin descripción.</Text>;
-
-        const cleanText = text.replace(/<br\s*\/?>/gi, '\n\n');
-        const parts = cleanText.split(/(\[[^\]]+\]|\([^)]+\))/g);
-
+        const parts = effect.split(/(\[.*?\]|\(.*?\))/g);
         return (
             <Text style={styles.effectText}>
                 {parts.map((part, index) => {
                     if (part.startsWith('[') && part.endsWith(']')) {
                         const innerText = part.slice(1, -1);
-                        let badgeStyle: any = styles.defaultBadge;
-
-                        // --- NUEVA LÓGICA DE COLORES CORREGIDA ---
-                        if (innerText.match(/On Play/i)) badgeStyle = styles.onPlayBadge;
-                        if (innerText.match(/Activate: Main|Main/i)) badgeStyle = styles.activateMainBadge;
-                        if (innerText.match(/Once Per Turn/i)) badgeStyle = styles.oncePerTurnBadge;
-                        if (innerText.match(/Blocker/i)) badgeStyle = styles.blockerBadge;
-                        if (innerText.includes('DON!!')) badgeStyle = styles.donBadge;
+                        let badgeStyle = styles.defaultBadge;
+                        if (innerText === 'DON!!') badgeStyle = styles.donBadge;
+                        else if (['Trigger', 'Rush', 'Blocker', 'Banish', 'Double Attack'].includes(innerText))
+                            badgeStyle = styles.keywordBadge;
 
                         return (
                             <View key={index} style={[styles.inlineBadge, badgeStyle]}>
@@ -132,14 +117,11 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                             </View>
                         );
                     }
-
-                    if (part.startsWith('(') && part.endsWith(')')) {
+                    if (part.startsWith('(') && part.endsWith(')'))
                         return <Text key={index} style={styles.italicText}>{part}</Text>;
-                    }
 
-                    // Si el fragmento contiene ":" y es el inicio de una frase
                     if (part.includes(':')) {
-                        const subParts = part.split(/(:)/); // Dividimos manteniendo los ":"
+                        const subParts = part.split(/(:)/);
                         return (
                             <Text key={index}>
                                 <Text style={styles.boldCondition}>{subParts[0]}{subParts[1]}</Text>
@@ -147,7 +129,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                             </Text>
                         );
                     }
-
                     return <Text key={index}>{part}</Text>;
                 })}
             </Text>
@@ -155,17 +136,19 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={styles.root}>
             <StatusBar barStyle="light-content" />
 
-            {/* FONDO IMAGEN (Blur o degradado) */}
             <LinearGradient
                 colors={[THEME.deepOcean, THEME.navy, '#0f172a']}
                 style={StyleSheet.absoluteFill}
             />
 
-            <SafeAreaView style={{ flex: 1 }}>
-                {/* HEADER NAV */}
+            <ScreenContainer
+                bg="transparent"
+                edges={['top', 'left', 'right']}
+                padding={0}
+            >
                 <View style={styles.navBar}>
                     <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Text style={styles.backText}>◀ VOLVER</Text>
@@ -174,7 +157,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
 
-                    {/* 1. IMAGEN DE LA CARTA */}
                     <View style={styles.imageContainer}>
                         {cardData.image_url ? (
                             <Image
@@ -187,24 +169,19 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                                 <Text style={{ fontSize: 40 }}>🏴‍☠️</Text>
                             </View>
                         )}
-                        {/* Badge Rarity */}
                         <View style={styles.rarityBadge}>
                             <Text style={styles.rarityText}>{cardData.rarity || '??'}</Text>
                         </View>
                     </View>
 
-                    {/* 2. BLOQUE DE INFORMACIÓN */}
                     <View style={styles.infoCard}>
-                        {/* Títulos */}
                         <Text style={styles.cardCode}>{cardData.code}</Text>
                         <Text style={styles.cardName}>{cardData.name}</Text>
                         <Text style={styles.setName}>{cardCodeParser.getSetName(cardData.set_code)}</Text>
 
                         <View style={styles.divider} />
 
-                        {/* SECCIÓN DE SPECS REDISEÑADA */}
                         <View style={styles.specsContainer}>
-                            {/* Fila 1: Type (Feature) - Ocupa más espacio porque suele ser largo */}
                             <View style={styles.fullWidthSpec}>
                                 <Text style={styles.specLabel}>TYPE</Text>
                                 <View style={styles.typeBadgeContainer}>
@@ -220,7 +197,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                                 </View>
                             </View>
 
-                            {/* Fila 2: Chips de especificaciones rápidas */}
                             <View style={styles.specsChipsRow}>
                                 <View style={styles.specChip}>
                                     <Text style={styles.specLabel}>COLOR</Text>
@@ -237,7 +213,6 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                             </View>
                         </View>
 
-                        {/* Efecto de la Carta */}
                         <View style={styles.effectContainer}>
                             <Text style={styles.specLabel}>EFECTO</Text>
                             <View style={styles.effectTextWrapper}>
@@ -247,10 +222,7 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                     </View>
                 </ScrollView>
 
-                {/* 3. FOOTER FIJO (Acciones) */}
-                <View style={styles.footer}>
-
-                    {/* Precio y Cardmarket */}
+                <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
                     <View style={styles.priceColumn}>
                         <Text style={styles.marketLabel}>MERCADO (AVG)</Text>
                         <Text style={styles.priceText}>
@@ -261,122 +233,41 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                         </Pressable>
                     </View>
 
-                    {/* Selector Cantidad */}
                     <View style={styles.qtyContainer}>
                         <Text style={styles.qtyLabel}>EN POSESIÓN</Text>
                         <View style={styles.qtyControls}>
                             <Pressable onPress={() => handleQuantity(-1)} style={styles.qtyBtn}>
                                 <Text style={styles.qtyBtnText}>-</Text>
                             </Pressable>
-
                             <Text style={styles.qtyValue}>{qty}</Text>
-
                             <Pressable onPress={() => handleQuantity(1)} style={styles.qtyBtn}>
                                 <Text style={styles.qtyBtnText}>+</Text>
                             </Pressable>
                         </View>
                     </View>
-
                 </View>
-            </SafeAreaView>
+            </ScreenContainer>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, paddingTop: StatusBar.currentHeight || 0, backgroundColor: THEME.deepOcean },
-    scrollContent: { paddingBottom: 150 },
-
-    navBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
-    backButton: { padding: 8 },
-    backText: { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
-
-    specsContainer: {
-        marginBottom: 20,
-    },
-    fullWidthSpec: {
-        backgroundColor: 'rgba(253, 240, 213, 0.05)',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 10,
-        borderLeftWidth: 2,
-        borderLeftColor: THEME.gold,
-    },
-    specsChipsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 8,
-    },
-    specChip: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-        borderRadius: 8,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(253, 240, 213, 0.1)',
-    },
-    specLabel: {
-        color: 'rgba(253, 240, 213, 0.4)',
-        fontSize: 9,
-        fontWeight: '700',
-        marginBottom: 2,
-        textTransform: 'uppercase'
-    },
-    specValue: {
-        color: THEME.cream,
-        fontSize: 12,
-        fontWeight: 'bold',
-        textAlign: 'center'
-    },
-
-    fullWidthSpec: {
-        backgroundColor: 'rgba(253, 240, 213, 0.05)',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 10,
-        borderLeftWidth: 3,
-        borderLeftColor: THEME.gold,
-    },
-    typeBadgeContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap', // Para que si hay muchos tipos, bajen a la siguiente línea
-        gap: 6,
-        marginTop: 4,
-    },
-    typeBadge: {
-        backgroundColor: '#0f4970',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(253, 240, 213, 0.2)',
-    },
-    typeBadgeText: {
-        color: THEME.cream,
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-
-    // Ajuste al divider para que no pegue tanto
-    divider: {
-        height: 1,
-        backgroundColor: 'rgba(253, 240, 213, 0.1)',
-        marginVertical: 15
-    },
-
-    // IMAGEN
-    imageContainer: { alignItems: 'center', marginTop: 10, marginBottom: 20 },
+    root:            { flex: 1, backgroundColor: THEME.deepOcean },
+    errorContainer:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    errorText:       { color: THEME.cream, marginBottom: 20 },
+    errorBtn:        { padding: 10, backgroundColor: THEME.cream, borderRadius: 8 },
+    scrollContent:   { paddingBottom: 150 },
+    navBar:          { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+    backButton:      { padding: 8 },
+    backText:        { color: THEME.cream, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
+    imageContainer:  { alignItems: 'center', marginTop: 10, marginBottom: 20 },
     cardImage: {
         width: width * 0.65,
         height: (width * 0.65) * (88 / 63),
         borderRadius: 12,
         borderWidth: 1, borderColor: 'rgba(0,0,0,0.5)'
     },
-    altBorder: { borderWidth: 3, borderColor: THEME.gold },
+    altBorder:       { borderWidth: 3, borderColor: THEME.gold },
     placeholderImage: {
         width: width * 0.65, height: (width * 0.65) * (88 / 63),
         backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 12,
@@ -389,100 +280,66 @@ const styles = StyleSheet.create({
         borderRadius: 12, borderWidth: 1, borderColor: THEME.gold,
         shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4
     },
-    rarityText: { color: THEME.gold, fontWeight: '900', fontSize: 12 },
-
-    // INFO CARD
+    rarityText:      { color: THEME.gold, fontWeight: '900', fontSize: 12 },
     infoCard: {
         backgroundColor: THEME.glass,
-        marginHorizontal: 16,
-        borderRadius: 16,
-        padding: 20,
+        marginHorizontal: 16, borderRadius: 16, padding: 20,
         borderWidth: 1, borderColor: THEME.glassBorder,
     },
-    cardCode: { color: THEME.gold, fontSize: 12, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
-    cardName: { color: THEME.cream, fontSize: 24, fontWeight: '900', textAlign: 'center', marginVertical: 4, textTransform: 'uppercase' },
-    setName: { color: 'rgba(253, 240, 213, 0.6)', fontSize: 12, fontWeight: '600', textAlign: 'center', letterSpacing: 1 },
-
-
-    // GRID SPECS
-    specsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-    specBox: { alignItems: 'center', flex: 1 },
-
+    cardCode:        { color: THEME.gold, fontSize: 12, fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 },
+    cardName:        { color: THEME.cream, fontSize: 24, fontWeight: '900', textAlign: 'center', marginVertical: 4, textTransform: 'uppercase' },
+    setName:         { color: 'rgba(253, 240, 213, 0.6)', fontSize: 12, fontWeight: '600', textAlign: 'center', letterSpacing: 1 },
+    divider:         { height: 1, backgroundColor: 'rgba(253, 240, 213, 0.1)', marginVertical: 15 },
+    specsContainer:  { marginBottom: 20 },
+    fullWidthSpec: {
+        backgroundColor: 'rgba(253, 240, 213, 0.05)',
+        padding: 12, borderRadius: 8, marginBottom: 10,
+        borderLeftWidth: 3, borderLeftColor: THEME.gold,
+    },
+    specsChipsRow:   { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+    specChip: {
+        flex: 1, paddingVertical: 8, paddingHorizontal: 4,
+        borderRadius: 8, alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(253, 240, 213, 0.1)',
+    },
+    specLabel:           { color: 'rgba(253, 240, 213, 0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2, textTransform: 'uppercase' },
+    specValue:           { color: THEME.cream, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+    typeBadgeContainer:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+    typeBadge: {
+        backgroundColor: '#0f4970', paddingHorizontal: 10, paddingVertical: 4,
+        borderRadius: 4, borderWidth: 1, borderColor: 'rgba(253, 240, 213, 0.2)',
+    },
+    typeBadgeText:   { color: THEME.cream, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
     effectContainer: { backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8 },
-
-    // FOOTER
+    effectTextWrapper: { marginTop: 6 },
+    effectText:      { color: THEME.cream, fontSize: 13, lineHeight: 20, opacity: 0.9 },
+    inlineBadge:     { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginHorizontal: 2 },
+    defaultBadge:    { backgroundColor: THEME.navy },
+    donBadge:        { backgroundColor: THEME.red },
+    keywordBadge:    { backgroundColor: '#0f4970' },
+    badgeText:       { color: THEME.cream, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+    italicText:      { color: 'rgba(253,240,213,0.6)', fontStyle: 'italic' },
+    boldCondition:   { color: THEME.gold, fontWeight: '800' },
     footer: {
         position: 'absolute', bottom: 0, left: 0, right: 0,
         backgroundColor: '#000F1A',
         borderTopWidth: 1, borderTopColor: THEME.glassBorder,
-        flexDirection: 'row', padding: 10, paddingBottom: 43,
-        justifyContent: 'space-between', alignItems: 'center'
+        flexDirection: 'row', padding: 10,
+        justifyContent: 'space-between', alignItems: 'center',
     },
-    priceColumn: { flex: 1, paddingRight: 20 },
-    marketLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2 },
-    priceText: { color: THEME.cream, fontSize: 22, fontWeight: 'bold' },
-
-    cmButton: { marginTop: 8 },
-    cmButtonText: { color: THEME.cardmarketBlue, fontSize: 12, fontWeight: 'bold' },
-
-    qtyContainer: { alignItems: 'flex-end' },
-    qtyLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 6 },
+    priceColumn:     { flex: 1, paddingRight: 20 },
+    marketLabel:     { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 2 },
+    priceText:       { color: THEME.cream, fontSize: 22, fontWeight: 'bold' },
+    cmButton:        { marginTop: 8 },
+    cmButtonText:    { color: THEME.cardmarketBlue, fontSize: 12, fontWeight: 'bold' },
+    qtyContainer:    { alignItems: 'flex-end' },
+    qtyLabel:        { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', marginBottom: 6 },
     qtyControls: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: THEME.navy, borderRadius: 20,
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
     },
-    qtyBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    qtyBtnText: { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
-    qtyValue: { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
-
-    // ... dentro de StyleSheet.create
-    effectText: {
-        color: THEME.cream,
-        fontSize: 14,
-        lineHeight: 24, // Altura de línea para que los badges respiren
-        textAlign: 'left',
-        opacity: 0.9, marginTop: 4
-    },
-    inlineBadge: {
-        paddingHorizontal: 5,
-        height: 16,               // Altura compacta para no sobresalir del texto
-        borderRadius: 2,
-        marginHorizontal: 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-        // --- AJUSTE DE ALINEACIÓN VERTICAL ---
-        position: 'relative',
-        top: 3,                   // Lo baja justo al centro del texto
-        marginBottom: -3,
-    },
-    badgeText: {
-        fontSize: 9,
-        fontWeight: '900',
-        color: '#FFF',
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-        lineHeight: 10,           // Centrado interno del texto en el badge
-    },
-
-    // --- PALETA CORREGIDA ---
-    defaultBadge: { backgroundColor: '#0071bc' },
-    onPlayBadge: { backgroundColor: '#0071bc' },      // Azul On Play
-    activateMainBadge: { backgroundColor: '#0084bd' }, // Azul/Cian Main
-    oncePerTurnBadge: { backgroundColor: '#e60012' },  // Rojo/Rosa Once Per Turn
-    blockerBadge: { backgroundColor: '#ca601e' },      // Naranja Blocker
-    donBadge: {
-        backgroundColor: '#000',
-        borderWidth: 1,
-        borderColor: THEME.gold
-    },
-
-    italicText: {
-        color: 'rgba(253, 240, 213, 0.5)',
-        fontStyle: 'italic',
-    },
-
-    boldCondition: {
-        fontWeight: 'bold',        
-    },
+    qtyBtn:          { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    qtyBtnText:      { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
+    qtyValue:        { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
 });

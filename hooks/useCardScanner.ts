@@ -1,70 +1,103 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useCollection } from '../context/CollectionContext';
+import { DetectionState } from '../types/card.types';
 import { cardCodeParser } from '../utils/cardCodeParser';
+import { SCANNER_CONFIG } from '../utils/constants';
 
 export const useCardScanner = () => {
-  const { addCard } = useCollection(); // Usamos la función del contexto
-  
-  const [detectionState, setDetectionState] = useState({
-    lastScanned: '',
-    lastSavedCode: null as string | null,
-    isProcessing: false,
-    feedbackMessage: null as string | null,
-    feedbackType: null as 'success' | 'error' | 'info' | null,
+  const { addCard } = useCollection();
+
+  const [detectionState, setDetectionState] = useState<DetectionState>({
+    isDetecting: false,
+    currentCode: null,
+    confirmationCount: 0,
+    lastSavedCode: null,
   });
 
-  // AHORA ACEPTAMOS isAltMode AQUÍ ⬇️
+  // Evita procesar el mismo código dos veces mientras está en cooldown
+  const lastScannedRef = useRef<string | null>(null);
+  const isProcessingRef = useRef(false);
+
   const processDetectedText = useCallback(async (text: string, isAltMode: boolean) => {
-    
-    // 1. Limpieza básica para no procesar basura
     if (!text || text.length < 5) return;
 
-    // 2. Parseamos el código (OP05-060)
     const parsed = cardCodeParser.parse(text);
-    
-    if (parsed) {
-      // Evitar procesar lo mismo 20 veces seguidas muy rápido
-      if (detectionState.isProcessing || parsed.fullCode === detectionState.lastScanned) {
-        return;
-      }
 
-      setDetectionState(prev => ({ ...prev, isProcessing: true, lastScanned: parsed.fullCode }));
-
-      try {
-        // 3. LLAMAMOS A ADD CARD PASANDO EL MODO ALT ⬇️
-        const result = await addCard(parsed.fullCode, isAltMode);
-
-        if (result.success) {
-           setDetectionState({
-             lastScanned: parsed.fullCode,
-             lastSavedCode: parsed.fullCode,
-             isProcessing: false,
-             feedbackMessage: `${parsed.fullCode} ${isAltMode ? '(AA)' : ''} GUARDADA`,
-             feedbackType: 'success'
-           });
-           
-           // Limpiamos el estado después de un momento para permitir escanear la misma carta de nuevo si se quiere
-           setTimeout(() => {
-             setDetectionState(prev => ({ ...prev, lastScanned: '' }));
-           }, 2000);
-
-        } else {
-           throw new Error(result.message);
-        }
-
-      } catch (error) {
-        setDetectionState(prev => ({
-          ...prev,
-          isProcessing: false,
-          feedbackMessage: 'Error al guardar',
-          feedbackType: 'error'
-        }));
-      }
+    if (!parsed) {
+      // Nada reconocible: volvemos a idle si estábamos detectando
+      setDetectionState(prev =>
+        prev.isDetecting
+          ? { ...prev, isDetecting: false, currentCode: null, confirmationCount: 0 }
+          : prev
+      );
+      return;
     }
-  }, [addCard, detectionState.isProcessing, detectionState.lastScanned]);
+
+    const code = parsed.fullCode;
+
+    // Si ya estamos procesando este código o acabamos de guardarlo, ignoramos
+    if (isProcessingRef.current || code === lastScannedRef.current) return;
+
+    // Actualizamos UI: "detectando / confirmando"
+    setDetectionState(prev => ({
+      ...prev,
+      isDetecting: true,
+      currentCode: code,
+      confirmationCount: (prev.currentCode === code ? prev.confirmationCount : 0) + 1,
+    }));
+
+    // Marcamos como en proceso para evitar llamadas paralelas
+    isProcessingRef.current = true;
+    lastScannedRef.current = code;
+
+    try {
+      const result = await addCard(code, isAltMode);
+
+      if (result.success) {
+        // Éxito: mostramos el código guardado
+        setDetectionState({
+          isDetecting: false,
+          currentCode: null,
+          confirmationCount: 0,
+          lastSavedCode: `${code}${isAltMode ? ' ★' : ''}`,
+        });
+
+        // Limpiamos el éxito tras SUCCESS_DISPLAY_MS
+        setTimeout(() => {
+          setDetectionState(prev => ({
+            ...prev,
+            lastSavedCode: null,
+          }));
+          lastScannedRef.current = null; // Permite re-escanear la misma carta
+        }, SCANNER_CONFIG.SUCCESS_DISPLAY_MS);
+
+      } else {
+        // Error o duplicado: volvemos a idle
+        setDetectionState({
+          isDetecting: false,
+          currentCode: null,
+          confirmationCount: 0,
+          lastSavedCode: null,
+        });
+        // En duplicado/error también liberamos el ref para no bloquear
+        lastScannedRef.current = null;
+      }
+
+    } catch (_) {
+      setDetectionState({
+        isDetecting: false,
+        currentCode: null,
+        confirmationCount: 0,
+        lastSavedCode: null,
+      });
+      lastScannedRef.current = null;
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [addCard]);
 
   return {
     detectionState,
-    processDetectedText
+    processDetectedText,
   };
 };
