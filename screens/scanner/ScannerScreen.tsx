@@ -18,9 +18,9 @@ import {
 } from 'react-native-vision-camera';
 
 import { ScreenContainer } from '../../components/layout/ScreenContainer';
-import { DetectionFeedback } from '../../components/scanner/DetectionFeedback';
 import { RecentScans } from '../../components/scanner/RecentScans';
 import { ScanOverlay } from '../../components/scanner/ScanOverlay';
+import { SuccessModal } from '../../components/scanner/SuccessModal';
 import { useCardScanner } from '../../hooks/useCardScanner';
 import { useCardStorage } from '../../hooks/useCardStorage';
 import { ScannerScreenProps } from '../../types/navigation.types';
@@ -41,7 +41,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const camera = useRef<Camera>(null);
   const { hasPermission, requestPermission } = useCameraPermission();
 
-  const { detectionState, processDetectedText } = useCardScanner();
+  const { detectionState, processDetectedText, showSuccessModal, syncState } = useCardScanner();
   const { recentCards, refresh } = useCardStorage();
 
   const [isAltMode, setIsAltMode] = useState(false);
@@ -128,8 +128,6 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   }
 
   return (
-    // edges={['top']} → ScreenContainer gestiona el inset superior
-    // El resto de overlays se posicionan de forma absoluta como antes
     <ScreenContainer bg="#000" edges={['top']} padding={0}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
 
@@ -151,17 +149,9 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
       <ScanOverlay />
 
-      <DetectionFeedback detectionState={{
-        isDetecting: detectionState.isProcessing,
-        currentCode: detectionState.lastSavedCode,
-        confirmationCount: 1,
-        lastSavedCode: detectionState.lastSavedCode,
-      }} />
-
-      {/* BARRA SUPERIOR — top:0 porque ScreenContainer ya aplicó el inset */}
+      {/* BARRA SUPERIOR */}
       <View style={styles.topControlsContainer}>
         <View style={styles.topBar}>
-          {/* Botón COLECCIÓN */}
           <Pressable
             style={({ pressed }) => [styles.glassButton, pressed && styles.glassButtonPressed]}
             onPress={() => navigation.navigate('Collection')}
@@ -170,7 +160,6 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
             <Text style={styles.glassButtonText}>COLECCIÓN</Text>
           </Pressable>
 
-          {/* Flash + AA */}
           <View style={styles.topRightButtons}>
             <Pressable
               style={[styles.circleButton, torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold }]}
@@ -235,6 +224,14 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           onCardPress={() => navigation.navigate('Collection')}
         />
       </View>
+
+      {/* ── MODAL DE ÉXITO — al final para que quede encima de todo ── */}
+      <SuccessModal
+        visible={showSuccessModal}
+        cardCode={detectionState.lastSavedCode || ''}
+        isAltArt={detectionState.isAltArt}
+        syncState={syncState}
+      />
     </ScreenContainer>
   );
 };
@@ -266,7 +263,6 @@ const styles = StyleSheet.create({
     opacity: 0.8, borderStyle: 'dashed',
   },
 
-  // top: 0 — ScreenContainer ya desplazó el contenido por el inset superior
   topControlsContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

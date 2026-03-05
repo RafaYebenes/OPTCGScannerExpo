@@ -1,103 +1,105 @@
+// hooks/useCardScanner.ts
+// VERSIÓN 2 — Feedback optimista
+// Timer de dismiss empieza al MOSTRAR el modal, no al terminar Supabase.
+// Así el tiempo visible es siempre 1.5s independientemente de la red.
+
 import { useCallback, useRef, useState } from 'react';
 import { useCollection } from '../context/CollectionContext';
-import { DetectionState } from '../types/card.types';
 import { cardCodeParser } from '../utils/cardCodeParser';
-import { SCANNER_CONFIG } from '../utils/constants';
+
+type SyncState = 'syncing' | 'synced' | 'error';
+
+const MODAL_VISIBLE_MS = 1500; // Tiempo total que se ve el modal
+
+interface DetectionState {
+  lastScanned: string;
+  lastSavedCode: string | null;
+  isProcessing: boolean;
+  isAltArt: boolean;
+  feedbackMessage: string | null;
+  feedbackType: 'success' | 'error' | 'info' | null;
+}
 
 export const useCardScanner = () => {
   const { addCard } = useCollection();
 
   const [detectionState, setDetectionState] = useState<DetectionState>({
-    isDetecting: false,
-    currentCode: null,
-    confirmationCount: 0,
+    lastScanned: '',
     lastSavedCode: null,
+    isProcessing: false,
+    isAltArt: false,
+    feedbackMessage: null,
+    feedbackType: null,
   });
 
-  // Evita procesar el mismo código dos veces mientras está en cooldown
-  const lastScannedRef = useRef<string | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>('syncing');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const isProcessingRef = useRef(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const processDetectedText = useCallback(async (text: string, isAltMode: boolean) => {
-    if (!text || text.length < 5) return;
+  const processDetectedText = useCallback(
+    async (text: string, isAltMode: boolean) => {
+      if (!text || text.length < 5) return;
 
-    const parsed = cardCodeParser.parse(text);
+      const parsed = cardCodeParser.parse(text);
+      if (!parsed) return;
 
-    if (!parsed) {
-      // Nada reconocible: volvemos a idle si estábamos detectando
-      setDetectionState(prev =>
-        prev.isDetecting
-          ? { ...prev, isDetecting: false, currentCode: null, confirmationCount: 0 }
-          : prev
-      );
-      return;
-    }
-
-    const code = parsed.fullCode;
-
-    // Si ya estamos procesando este código o acabamos de guardarlo, ignoramos
-    if (isProcessingRef.current || code === lastScannedRef.current) return;
-
-    // Actualizamos UI: "detectando / confirmando"
-    setDetectionState(prev => ({
-      ...prev,
-      isDetecting: true,
-      currentCode: code,
-      confirmationCount: (prev.currentCode === code ? prev.confirmationCount : 0) + 1,
-    }));
-
-    // Marcamos como en proceso para evitar llamadas paralelas
-    isProcessingRef.current = true;
-    lastScannedRef.current = code;
-
-    try {
-      const result = await addCard(code, isAltMode);
-
-      if (result.success) {
-        // Éxito: mostramos el código guardado
-        setDetectionState({
-          isDetecting: false,
-          currentCode: null,
-          confirmationCount: 0,
-          lastSavedCode: `${code}${isAltMode ? ' ★' : ''}`,
-        });
-
-        // Limpiamos el éxito tras SUCCESS_DISPLAY_MS
-        setTimeout(() => {
-          setDetectionState(prev => ({
-            ...prev,
-            lastSavedCode: null,
-          }));
-          lastScannedRef.current = null; // Permite re-escanear la misma carta
-        }, SCANNER_CONFIG.SUCCESS_DISPLAY_MS);
-
-      } else {
-        // Error o duplicado: volvemos a idle
-        setDetectionState({
-          isDetecting: false,
-          currentCode: null,
-          confirmationCount: 0,
-          lastSavedCode: null,
-        });
-        // En duplicado/error también liberamos el ref para no bloquear
-        lastScannedRef.current = null;
+      if (isProcessingRef.current || parsed.fullCode === detectionState.lastScanned) {
+        return;
       }
 
-    } catch (_) {
+      isProcessingRef.current = true;
+
+      // Limpiar timer anterior
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+      }
+
+      // ── FEEDBACK OPTIMISTA: mostrar modal INMEDIATAMENTE ──
       setDetectionState({
-        isDetecting: false,
-        currentCode: null,
-        confirmationCount: 0,
-        lastSavedCode: null,
+        lastScanned: parsed.fullCode,
+        lastSavedCode: parsed.fullCode,
+        isProcessing: true,
+        isAltArt: isAltMode,
+        feedbackMessage: `${parsed.fullCode} ${isAltMode ? '(AA)' : ''} GUARDADA`,
+        feedbackType: 'success',
       });
-      lastScannedRef.current = null;
-    } finally {
-      isProcessingRef.current = false;
-    }
-  }, [addCard]);
+      setSyncState('syncing');
+      setShowSuccessModal(true);
+
+      // ── DISMISS TIMER: empieza AHORA, no cuando Supabase termine ──
+      dismissTimerRef.current = setTimeout(() => {
+        setShowSuccessModal(false);
+        setSyncState('syncing');
+        setDetectionState(prev => ({ ...prev, lastScanned: '' }));
+        isProcessingRef.current = false;
+      }, MODAL_VISIBLE_MS);
+
+      // ── GUARDAR EN BACKGROUND (no bloquea el dismiss) ──
+      try {
+        const result = await addCard(parsed.fullCode, isAltMode);
+
+        if (result.success) {
+          setSyncState('synced');
+        } else {
+          setSyncState('error');
+          console.warn('[Scanner] Error al guardar:', result.message);
+        }
+      } catch (error) {
+        setSyncState('error');
+        console.error('[Scanner] Error de red:', error);
+      } finally {
+        setDetectionState(prev => ({ ...prev, isProcessing: false }));
+      }
+    },
+    [addCard, detectionState.lastScanned]
+  );
 
   return {
     detectionState,
     processDetectedText,
+    showSuccessModal,
+    syncState,
   };
 };
