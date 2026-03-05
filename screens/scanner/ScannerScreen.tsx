@@ -1,3 +1,16 @@
+// ─────────────────────────────────────────────────────────
+// ScannerScreen.tsx — CON DETECCIÓN DE LUZ ADAPTATIVA
+// ─────────────────────────────────────────────────────────
+// CAMBIOS sobre el código actual (marcados con ← NUEVO / ← CAMBIO):
+// 1. Importa useLightDetection + cardCodeParser
+// 2. Intervalo de escaneo dinámico (lightConfig.throttleMs)
+// 3. Exposición compensada (lightConfig.exposureOffset)
+// 4. Zoom adaptativo (lightConfig.zoomMultiplier)
+// 5. ScanOverlay recibe props de luz
+// 6. Borde dorado en botón flash cuando se sugiere activarlo
+// 7. Alimenta el detector de luz con resultado OCR
+// ─────────────────────────────────────────────────────────
+
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -23,7 +36,9 @@ import { ScanOverlay } from '../../components/scanner/ScanOverlay';
 import { SuccessModal } from '../../components/scanner/SuccessModal';
 import { useCardScanner } from '../../hooks/useCardScanner';
 import { useCardStorage } from '../../hooks/useCardStorage';
+import { useLightDetection } from '../../hooks/uselightdetection'; // ← NUEVO
 import { ScannerScreenProps } from '../../types/navigation.types';
+import { cardCodeParser } from '../../utils/cardCodeParser'; // ← NUEVO
 import { SCANNER_CONFIG } from '../../utils/constants';
 
 const PALETTE = {
@@ -44,6 +59,9 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const { detectionState, processDetectedText, showSuccessModal, syncState } = useCardScanner();
   const { recentCards, refresh } = useCardStorage();
 
+  // ─── NUEVO: Hook de detección de luz ───
+  const { lightConfig, brightness, updateFromOCRResult, setTorchState } = useLightDetection() as any;
+
   const [isAltMode, setIsAltMode] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -56,19 +74,31 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
   useEffect(() => { isAltModeRef.current = isAltMode; }, [isAltMode]);
 
+  // ─── NUEVO: Sincronizar estado del flash con detección de luz ───
+  useEffect(() => {
+    if (typeof setTorchState === 'function') {
+      setTorchState(torchOn);
+    }
+  }, [torchOn, setTorchState]);
+
   useEffect(() => {
     if (detectionState.lastSavedCode) refresh();
   }, [detectionState.lastSavedCode, refresh]);
 
+  // ─────────────────────────────────────────
+  // LOOP DE ESCANEO — AHORA CON THROTTLE DINÁMICO
+  // ─────────────────────────────────────────
   useEffect(() => {
     if (!camera.current || !hasPermission || showManualInput) return;
+
+    // ← CAMBIO: usa throttle dinámico según nivel de luz
+    const currentThrottle = lightConfig?.throttleMs ?? SCANNER_CONFIG.THROTTLE_MS;
 
     scanIntervalRef.current = setInterval(async () => {
       if (isProcessingRef.current) return;
       try {
         isProcessingRef.current = true;
         const photo = await camera.current?.takePhoto({
-          flash: torchOn ? 'on' : 'off',
           enableShutterSound: false,
         });
         if (photo) {
@@ -78,6 +108,13 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           const result = await TextRecognition.recognize(imagePath);
           if (result?.blocks) {
             const allText = result.blocks.map((b: any) => b.text).join('\n');
+
+            // ← NUEVO: Alimentar detector de luz con resultado OCR
+            const parsed = cardCodeParser.parse(allText);
+            if (typeof updateFromOCRResult === 'function') {
+              updateFromOCRResult(allText.length, !!parsed);
+            }
+
             await processDetectedText(allText, isAltModeRef.current);
           }
         }
@@ -86,12 +123,17 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
       } finally {
         isProcessingRef.current = false;
       }
-    }, SCANNER_CONFIG.THROTTLE_MS);
+    }, currentThrottle);  // ← DINÁMICO según luz
 
     return () => {
       if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
     };
-  }, [hasPermission, torchOn, showManualInput, processDetectedText]);
+  }, [
+    hasPermission,
+    showManualInput,
+    processDetectedText,
+    lightConfig?.throttleMs,
+  ]);
 
   const handleTapToFocus = async (event: any) => {
     try {
@@ -127,6 +169,9 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
     );
   }
 
+  // ← NUEVO: Zoom dinámico según iluminación
+  const dynamicZoom = device.neutralZoom * (lightConfig?.zoomMultiplier ?? 1.5);
+
   return (
     <ScreenContainer bg="#000" edges={['top']} padding={0}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
@@ -139,15 +184,22 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           device={device}
           isActive={!showManualInput}
           photo={true}
-          zoom={device.neutralZoom * 1.5}
+          zoom={dynamicZoom}
           enableZoomGesture={true}
+          exposure={lightConfig?.exposureOffset ?? 0}
+          torch={torchOn ? 'on' : 'off'}
         />
         {focusPoint && (
           <View style={[styles.focusSquare, { left: focusPoint.x - 30, top: focusPoint.y - 30 }]} />
         )}
       </Pressable>
 
-      <ScanOverlay />
+      {/* ← CAMBIO: ScanOverlay ahora recibe props de luz */}
+      <ScanOverlay
+        lightLevel={lightConfig?.level ?? 'good'}
+        brightness={brightness ?? 200}
+        torchOn={torchOn}
+      />
 
       {/* BARRA SUPERIOR */}
       <View style={styles.topControlsContainer}>
@@ -161,8 +213,13 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           </Pressable>
 
           <View style={styles.topRightButtons}>
+            {/* Flash — ← CAMBIO: borde dorado si se recomienda activar */}
             <Pressable
-              style={[styles.circleButton, torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold }]}
+              style={[
+                styles.circleButton,
+                torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
+                lightConfig?.suggestTorch && !torchOn && styles.torchSuggested,
+              ]}
               onPress={() => setTorchOn(!torchOn)}
             >
               <Text style={{ fontSize: 18 }}>{torchOn ? '⚡' : '🔦'}</Text>
@@ -225,7 +282,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         />
       </View>
 
-      {/* ── MODAL DE ÉXITO — al final para que quede encima de todo ── */}
+      {/* MODAL DE ÉXITO */}
       <SuccessModal
         visible={showSuccessModal}
         cardCode={detectionState.lastSavedCode || ''}
@@ -289,6 +346,12 @@ const styles = StyleSheet.create({
   },
   aaButtonActive:   { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
   aaTextTop:        { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
+
+  // ← NUEVO
+  torchSuggested: {
+    borderColor: PALETTE.gold,
+    borderWidth: 2,
+  },
 
   manualFloatingBtn: {
     position: 'absolute',

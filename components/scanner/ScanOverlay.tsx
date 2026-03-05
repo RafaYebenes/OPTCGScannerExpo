@@ -1,27 +1,52 @@
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import { LightLevel } from '../../hooks/uselightdetection';
+import { LightIndicator } from './Lightindicator';
 
 // --- PALETA "ONE PIECE" ---
 const PALETTE = {
-  maskColor: 'rgba(0, 10, 24, 0.85)', // Oscuridad profunda
-  cream: "#fdf0d5",       // Color principal del marco (Borde carta)
-  lightBlue: "#669bbc",   // Detalles sutiles
-  glassBg: 'rgba(0, 21, 37, 0.8)', // Fondo etiqueta
+  maskColor: 'rgba(0, 10, 24, 0.85)',
+  cream: "#fdf0d5",
+  lightBlue: "#669bbc",
+  glassBg: 'rgba(0, 21, 37, 0.8)',
+  gold: '#FFD700',
+  orange: '#FF8C00',
+  red: '#c1121f',
+};
+
+// Color de esquinas según luz
+const CORNER_COLORS: Record<LightLevel, string> = {
+  good: PALETTE.cream,
+  medium: PALETTE.orange,
+  low: PALETTE.red,
 };
 
 const { width, height } = Dimensions.get('window');
 
 // Medidas Carta (Standard TCG)
 const CARD_ASPECT_RATIO = 63 / 88;
-const OVERLAY_WIDTH = width * 0.85; 
+const OVERLAY_WIDTH = width * 0.85;
 const OVERLAY_HEIGHT = OVERLAY_WIDTH / CARD_ASPECT_RATIO;
 
 const HOLE_X = (width - OVERLAY_WIDTH) / 2;
 const HOLE_Y = (height - OVERLAY_HEIGHT) / 2;
-const CORNER_RADIUS = 14; 
+const CORNER_RADIUS = 14;
 
-export const ScanOverlay = () => {
+// ─── PROPS (NUEVO) ───
+interface Props {
+  lightLevel?: LightLevel;
+  brightness?: number;
+  torchOn?: boolean;
+}
+
+export const ScanOverlay: React.FC<Props> = ({
+  lightLevel = 'good',
+  brightness = 200,
+  torchOn = false,
+}) => {
+  const cornerColor = CORNER_COLORS[lightLevel];
+
   return (
     <View style={StyleSheet.absoluteFill}>
       
@@ -51,7 +76,7 @@ export const ScanOverlay = () => {
         />
       </Svg>
 
-      {/* 2. ELEMENTOS DECORATIVOS (Marco Crema) */}
+      {/* 2. ELEMENTOS DECORATIVOS */}
       <View style={styles.contentContainer} pointerEvents="none">
         
         <View style={[styles.scanArea, { 
@@ -61,21 +86,32 @@ export const ScanOverlay = () => {
           height: OVERLAY_HEIGHT 
         }]}>
           
-          {/* Esquinas Color Crema (Estilo Mapa/Carta) */}
-          <View style={[styles.corner, styles.topLeft]} />
-          <View style={[styles.corner, styles.topRight]} />
-          <View style={[styles.corner, styles.bottomLeft]} />
-          <View style={[styles.corner, styles.bottomRight]} />
+          {/* Esquinas — Color dinámico según luz */}
+          <View style={[styles.corner, styles.topLeft, { borderColor: cornerColor }]} />
+          <View style={[styles.corner, styles.topRight, { borderColor: cornerColor }]} />
+          <View style={[styles.corner, styles.bottomLeft, { borderColor: cornerColor }]} />
+          <View style={[styles.corner, styles.bottomRight, { borderColor: cornerColor }]} />
           
           {/* Badge Inferior */}
           <View style={styles.glassBadge}>
             <Text style={styles.glassBadgeText}>CÓDIGO</Text>
           </View>
+
+          {/* ─── NUEVO: Indicador de luz dentro del área de escaneo ─── */}
+          <LightIndicator
+            level={lightLevel}
+            brightness={brightness}
+            torchOn={torchOn}
+          />
         </View>
 
-        {/* Texto Instrucción */}
+        {/* Texto Instrucción — Adaptativo */}
         <View style={styles.instructionContainer}>
-          <Text style={styles.instructionText}>ENFOCA LA CARTA</Text>
+          <Text style={styles.instructionText}>
+            {lightLevel === 'low' && !torchOn
+              ? 'POCA LUZ · ACTIVA EL FLASH'
+              : 'ENFOCA LA CARTA'}
+          </Text>
         </View>
 
       </View>
@@ -89,7 +125,7 @@ const styles = StyleSheet.create({
   
   instructionContainer: {
     position: 'absolute',
-    bottom: 100, // Un poco más arriba para dejar sitio a la UI
+    bottom: 100,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -103,12 +139,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
-  // Esquinas
+  // Esquinas (borderColor ahora es dinámico via inline style)
   corner: {
     position: 'absolute',
     width: 25,
     height: 25,
-    borderColor: PALETTE.cream, // El color clave
     borderWidth: 3,
     borderRadius: 2,
     opacity: 0.9,
