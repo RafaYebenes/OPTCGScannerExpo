@@ -187,9 +187,16 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                                 <View style={styles.typeBadgeContainer}>
                                     {cardData.feature ? (
                                         cardData.feature.split('/').map((type: string, index: number) => (
-                                            <View key={index} style={styles.typeBadge}>
-                                                <Text style={styles.typeBadgeText}>{type.trim()}</Text>
-                                            </View>
+                                            <Pressable 
+                                                key={index} 
+                                                style={({ pressed }) => [
+                                                    styles.typeBadge, 
+                                                    pressed && { opacity: 0.6, backgroundColor: '#1a6a9a' }
+                                                ]}
+                                                onPress={() => navigation.navigate('ArchetypeCards', { archetype: type.trim() })}
+                                            >
+                                                <Text style={styles.typeBadgeText}>{type.trim()} →</Text>
+                                            </Pressable>
                                         ))
                                     ) : (
                                         <Text style={styles.specValue}>-</Text>

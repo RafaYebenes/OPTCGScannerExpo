@@ -13,8 +13,8 @@ import { CardDetailScreen } from './screens/collection/CardDetailScreen';
 import { CollectionScreen } from './screens/collection/CollectionScreen';
 import { LoginScreen } from './screens/login/LoginScreen';
 import { ScannerScreen } from './screens/scanner/ScannerScreen';
-
 // Tipos
+import { ArchetypeScreen } from './screens/collection/Archetypescreen';
 import { RootStackParamList } from './types/navigation.types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -42,6 +42,11 @@ const NavigationContent = () => {
               name="CardDetail"
               component={CardDetailScreen}
               options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="ArchetypeCards"
+              component={ArchetypeScreen}
+              options={{ animation: 'slide_from_right' }}
             />
           </>
         ) : (

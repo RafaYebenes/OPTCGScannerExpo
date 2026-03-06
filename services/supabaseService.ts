@@ -180,5 +180,25 @@ export const supabaseService = {
       console.error('🚨 Error en getBaseCardByCode:', error.message);
       return null;
     }
+  },
+
+
+  // --- Obtener cartas por arquetipo/feature ---
+  async getCardsByArchetype(archetype: string) {
+    try {
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .ilike('feature', `%${archetype}%`)
+        .eq('variant', 'Normal')
+        .order('code', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error('🚨 Error en getCardsByArchetype:', error.message);
+      return [];
+    }
   }
+
 };

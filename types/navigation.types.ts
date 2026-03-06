@@ -9,6 +9,9 @@ export type RootStackParamList = {
     CardDetail?: {
         card: ScannedCard;
     };
+    ArchetypeCards: {
+        archetype: string;
+    };
 };
 
 export type ScannerScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Scanner'>;
@@ -31,3 +34,4 @@ export type CardDetailScreenProps = {
     navigation: CardDetailScreenNavigationProp;
     route: CardDetailScreenRouteProp;
 };
+
