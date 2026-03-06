@@ -1,3 +1,24 @@
+// ─────────────────────────────────────────────────────────
+// ScannerScreen.tsx — FRAME PROCESSOR + SMART CROP
+// ─────────────────────────────────────────────────────────
+// Cambios principales vs versión anterior:
+//
+// 1. Frame Processor (useScannerFrameProcessor) analiza brillo
+//    REAL de los píxeles en cada frame de la cámara (~6x/segundo)
+//
+// 2. takePhoto() + cropToCodeRegion() recorta solo la esquina
+//    inferior izquierda de la carta (donde está el código OP05-060)
+//    antes de pasar al OCR → mucho más rápido, menos falsos positivos
+//
+// 3. useBrightnessAnalyzer reemplaza useLightDetection
+//    (brillo real de píxeles vs heurística OCR)
+//
+// 4. torch como prop de Camera (linterna continua, no flash puntual)
+//
+// DEPENDENCIAS NUEVAS:
+//   npm install vision-camera-resize-plugin expo-image-manipulator
+// ─────────────────────────────────────────────────────────
+
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -17,14 +38,19 @@ import {
   useCameraPermission,
 } from 'react-native-vision-camera';
 
+import { useIsFocused } from '@react-navigation/native';
+
 import { ScreenContainer } from '../../components/layout/ScreenContainer';
 import { RecentScans } from '../../components/scanner/RecentScans';
 import { ScanOverlay } from '../../components/scanner/ScanOverlay';
 import { SuccessModal } from '../../components/scanner/SuccessModal';
+import { useBrightnessAnalyzer } from '../../hooks/useBrightnessAnalyzer';
 import { useCardScanner } from '../../hooks/useCardScanner';
 import { useCardStorage } from '../../hooks/useCardStorage';
+import { useScannerFrameProcessor } from '../../hooks/useScannerFrameProcessor';
 import { ScannerScreenProps } from '../../types/navigation.types';
 import { SCANNER_CONFIG } from '../../utils/constants';
+import { cropToCodeRegion } from '../../utils/Imagecrop';
 
 const PALETTE = {
   bgDarkGlass: 'rgba(0, 21, 37, 0.9)',
@@ -44,6 +70,16 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const { detectionState, processDetectedText, showSuccessModal, syncState } = useCardScanner();
   const { recentCards, refresh } = useCardStorage();
 
+  // ── ¿Está esta pantalla visible? ──
+  const isFocused = useIsFocused();
+
+  // ── Brightness analyzer (reemplaza useLightDetection) ──
+  const { lightConfig, brightness, onBrightnessComputed, setTorchState } =
+    useBrightnessAnalyzer();
+
+  // ── Frame Processor para brillo real ──
+  const frameProcessor = useScannerFrameProcessor(onBrightnessComputed);
+
   const [isAltMode, setIsAltMode] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -56,28 +92,50 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
   useEffect(() => { isAltModeRef.current = isAltMode; }, [isAltMode]);
 
+  // Sincronizar torch con brightness analyzer
+  useEffect(() => { setTorchState(torchOn); }, [torchOn, setTorchState]);
+
   useEffect(() => {
     if (detectionState.lastSavedCode) refresh();
   }, [detectionState.lastSavedCode, refresh]);
 
+  // ─────────────────────────────────────────
+  // LOOP DE ESCANEO — takePhoto + smart crop
+  // ─────────────────────────────────────────
   useEffect(() => {
-    if (!camera.current || !hasPermission || showManualInput) return;
+    if (!camera.current || !hasPermission || showManualInput || !isFocused) return;
+
+    const currentThrottle = lightConfig?.throttleMs ?? SCANNER_CONFIG.THROTTLE_MS;
 
     scanIntervalRef.current = setInterval(async () => {
       if (isProcessingRef.current) return;
       try {
         isProcessingRef.current = true;
         const photo = await camera.current?.takePhoto({
-          flash: torchOn ? 'on' : 'off',
           enableShutterSound: false,
         });
         if (photo) {
           const imagePath = photo.path.startsWith('file://')
             ? photo.path
             : `file://${photo.path}`;
-          const result = await TextRecognition.recognize(imagePath);
+
+          // ── SMART CROP: solo la esquina del código ──
+          let ocrUri = imagePath;
+          try {
+            ocrUri = await cropToCodeRegion(
+              imagePath,
+              photo.width,
+              photo.height,
+            );
+          } catch (_cropErr) {
+            // Fallback: imagen completa
+            console.log('[Scanner] Crop fallback, usando imagen completa');
+          }
+
+          const result = await TextRecognition.recognize(ocrUri);
           if (result?.blocks) {
             const allText = result.blocks.map((b: any) => b.text).join('\n');
+
             await processDetectedText(allText, isAltModeRef.current);
           }
         }
@@ -86,12 +144,12 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
       } finally {
         isProcessingRef.current = false;
       }
-    }, SCANNER_CONFIG.THROTTLE_MS);
+    }, currentThrottle);
 
     return () => {
       if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
     };
-  }, [hasPermission, torchOn, showManualInput, processDetectedText]);
+  }, [hasPermission, showManualInput, processDetectedText, lightConfig?.throttleMs, isFocused]);
 
   const handleTapToFocus = async (event: any) => {
     try {
@@ -127,27 +185,36 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
     );
   }
 
+  const dynamicZoom = device.neutralZoom * (lightConfig?.zoomMultiplier ?? 1.5);
+
   return (
     <ScreenContainer bg="#000" edges={['top']} padding={0}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
 
-      {/* CÁMARA */}
+      {/* CÁMARA con Frame Processor */}
       <Pressable style={StyleSheet.absoluteFill} onPress={handleTapToFocus}>
         <Camera
           ref={camera}
           style={StyleSheet.absoluteFill}
           device={device}
-          isActive={!showManualInput}
+          isActive={isFocused && !showManualInput}
           photo={true}
-          zoom={device.neutralZoom * 1.5}
+          zoom={dynamicZoom}
           enableZoomGesture={true}
+          exposure={lightConfig?.exposureOffset ?? 0}
+          torch={torchOn ? 'on' : 'off'}
+          frameProcessor={frameProcessor}
         />
         {focusPoint && (
           <View style={[styles.focusSquare, { left: focusPoint.x - 30, top: focusPoint.y - 30 }]} />
         )}
       </Pressable>
 
-      <ScanOverlay />
+      <ScanOverlay
+        lightLevel={lightConfig?.level ?? 'good'}
+        brightness={brightness ?? 200}
+        torchOn={torchOn}
+      />
 
       {/* BARRA SUPERIOR */}
       <View style={styles.topControlsContainer}>
@@ -162,7 +229,11 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
 
           <View style={styles.topRightButtons}>
             <Pressable
-              style={[styles.circleButton, torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold }]}
+              style={[
+                styles.circleButton,
+                torchOn && { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
+                lightConfig?.suggestTorch && !torchOn && styles.torchSuggested,
+              ]}
               onPress={() => setTorchOn(!torchOn)}
             >
               <Text style={{ fontSize: 18 }}>{torchOn ? '⚡' : '🔦'}</Text>
@@ -225,7 +296,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         />
       </View>
 
-      {/* ── MODAL DE ÉXITO — al final para que quede encima de todo ── */}
+      {/* MODAL DE ÉXITO */}
       <SuccessModal
         visible={showSuccessModal}
         cardCode={detectionState.lastSavedCode || ''}
@@ -289,6 +360,11 @@ const styles = StyleSheet.create({
   },
   aaButtonActive:   { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
   aaTextTop:        { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
+
+  torchSuggested: {
+    borderColor: PALETTE.gold,
+    borderWidth: 2,
+  },
 
   manualFloatingBtn: {
     position: 'absolute',
