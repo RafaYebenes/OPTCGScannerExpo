@@ -41,6 +41,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 
 import { ScreenContainer } from '../../components/layout/ScreenContainer';
+import { NotFoundBanner } from '../../components/scanner/NotFoundBanner';
 import { RecentScans } from '../../components/scanner/RecentScans';
 import { ScanOverlay } from '../../components/scanner/ScanOverlay';
 import { SuccessModal } from '../../components/scanner/SuccessModal';
@@ -48,6 +49,7 @@ import { useBrightnessAnalyzer } from '../../hooks/useBrightnessAnalyzer';
 import { useCardScanner } from '../../hooks/useCardScanner';
 import { useCardStorage } from '../../hooks/useCardStorage';
 import { useScannerFrameProcessor } from '../../hooks/useScannerFrameProcessor';
+import { cardReportService } from '../../services/cardReportService';
 import { ScannerScreenProps } from '../../types/navigation.types';
 import { SCANNER_CONFIG } from '../../utils/constants';
 import { cropToCodeRegion } from '../../utils/Imagecrop';
@@ -67,7 +69,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const camera = useRef<Camera>(null);
   const { hasPermission, requestPermission } = useCameraPermission();
 
-  const { detectionState, processDetectedText, showSuccessModal, syncState } = useCardScanner();
+  const { detectionState, processDetectedText, showSuccessModal, syncState, notFoundCode, clearNotFound } = useCardScanner();
   const { recentCards, refresh } = useCardStorage();
 
   // ── ¿Está esta pantalla visible? ──
@@ -91,6 +93,18 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const isAltModeRef = useRef(isAltMode);
 
   useEffect(() => { isAltModeRef.current = isAltMode; }, [isAltMode]);
+
+  // ── Handler para reportar carta no encontrada ──
+  const handleReportCard = async (code: string) => {
+    const result = await cardReportService.reportMissingCard(code, {
+      isAltArt: isAltMode,
+      source: 'scanner',
+    });
+    clearNotFound();
+    if (result.alreadyReported) {
+      console.log(`[Scanner] Carta ${code} ya fue reportada anteriormente`);
+    }
+  };
 
   // Sincronizar torch con brightness analyzer
   useEffect(() => { setTorchState(torchOn); }, [torchOn, setTorchState]);
@@ -135,8 +149,17 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           const result = await TextRecognition.recognize(ocrUri);
           if (result?.blocks) {
             const allText = result.blocks.map((b: any) => b.text).join('\n');
+            
+            // ── DEBUG: ver qué detecta el OCR tras el crop ──
+            if (allText.length > 0) {
+              console.log('[Scanner] OCR detectó:', allText.substring(0, 100));
+            } else {
+              console.log('[Scanner] OCR: nada detectado en imagen cropeada');
+            }
 
             await processDetectedText(allText, isAltModeRef.current);
+          } else {
+            console.log('[Scanner] OCR: sin bloques de texto');
           }
         }
       } catch (_) {
@@ -295,6 +318,14 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           onCardPress={() => navigation.navigate('Collection')}
         />
       </View>
+
+      {/* BANNER: CARTA NO ENCONTRADA */}
+      <NotFoundBanner
+        visible={!!notFoundCode}
+        cardCode={notFoundCode || ''}
+        onDismiss={clearNotFound}
+        onReport={handleReportCard}
+      />
 
       {/* MODAL DE ÉXITO */}
       <SuccessModal
