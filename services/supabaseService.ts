@@ -12,7 +12,6 @@ export const supabaseService = {
   async addCardToCollection(userId: string, rawCode: string, isFoil: boolean = false) {
     try {
       // 1. LIMPIEZA: Quitamos espacios y forzamos mayúsculas
-      // Esto soluciona el 99% de errores de "Carta no encontrada"
       const cardCode = rawCode.trim().toUpperCase();
       
       console.log(`🔍 Buscando carta: '${cardCode}' (Foil: ${isFoil})`);
@@ -21,13 +20,11 @@ export const supabaseService = {
 
       // 2. LÓGICA DE BÚSQUEDA
       if (isFoil) {
-        // A. Si es Foil/AA, intentamos ser listos y buscar si existe una variante '_p1' en la BBDD
-        // Esto es para que se guarde con la IMAGEN de la Alt Art si es posible.
         const { data: altCard } = await supabase
           .from('cards')
           .select('id')
-          .ilike('code', `${cardCode}`) // Busca OP01-001_p1, _p2...
-          .eq('variant', 'Parallel') // Solo nos interesan variantes Foil
+          .ilike('code', `${cardCode}`)
+          .eq('variant', 'Parallel')
           .limit(1)
           .maybeSingle();
         
@@ -37,14 +34,13 @@ export const supabaseService = {
         }
       }
 
-      // B. Si no encontramos variante (o no es foil), buscamos la carta base exacta
       if (!cardIdToAdd) {
         const { data: baseCard, error: baseError } = await supabase
             .from('cards')
             .select('id')
             .eq('code', cardCode)
-            .eq('variant', 'Normal') // Aseguramos coger la versión normal para no duplicar variantes
-            .maybeSingle(); // Usamos maybeSingle para no lanzar error todavía
+            .eq('variant', 'Normal')
+            .maybeSingle();
 
           console.log(`🔍 Buscando carta base: '${baseCard}'`);
         if (baseError || !baseCard) {
@@ -54,7 +50,30 @@ export const supabaseService = {
         cardIdToAdd = baseCard.id;
       }
 
-      // 3. INSERTAR EN LA COLECCIÓN DEL USUARIO
+      // 3. COMPROBAR SI YA EXISTE EN LA COLECCIÓN → UPSERT
+      const { data: existing } = await supabase
+        .from('user_collection')
+        .select('id, quantity')
+        .eq('user_id', userId)
+        .eq('card_id', cardIdToAdd)
+        .eq('is_foil', isFoil)
+        .maybeSingle();
+
+      if (existing) {
+        // Ya la tiene → incrementar quantity
+        const newQty = (existing.quantity || 1) + 1;
+        const { error: updateError } = await supabase
+          .from('user_collection')
+          .update({ quantity: newQty })
+          .eq('id', existing.id);
+
+        if (updateError) throw updateError;
+
+        console.log(`✅ Carta actualizada (qty: ${newQty}):`, existing.id);
+        return { success: true, data: { ...existing, quantity: newQty } };
+      }
+
+      // No existe → insertar nueva fila
       const { data, error } = await supabase
         .from('user_collection') 
         .insert({
@@ -99,7 +118,8 @@ export const supabaseService = {
             rarity,
             variant, 
             image_url,
-            market_price_eur
+            market_price_eur,
+            color
           )
         `)
         .eq('user_id', userId)
@@ -167,7 +187,7 @@ export const supabaseService = {
         .select('*')
         .eq('code', cardCode)
         .eq('variant', 'Normal')
-        .maybeSingle(); // Trae el primer resultado o null si no existe
+        .maybeSingle();
 
       if (error) throw error;
       

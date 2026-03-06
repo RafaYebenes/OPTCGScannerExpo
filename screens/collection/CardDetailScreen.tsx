@@ -38,6 +38,7 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     const [fullCardData, setFullCardData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [qty, setQty] = useState(item?.quantity ?? 0);
+    const [updating, setUpdating] = useState(false);       // ← NUEVO: evita doble-tap
     const insets = useSafeAreaInsets();
     const { updateQuantity, deleteCard } = useCollection();
 
@@ -67,7 +68,9 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
     const cardData = fullCardData || item.card || {};
     const isAlt = item.is_foil;
 
-    const handleQuantity = (delta: number) => {
+    const handleQuantity = async (delta: number) => {
+        if (updating) return;  // Evitar doble-tap
+
         const newQty = qty + delta;
         if (newQty <= 0) {
             Alert.alert(
@@ -78,6 +81,7 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                     {
                         text: "Eliminar", style: "destructive",
                         onPress: async () => {
+                            setUpdating(true);
                             await deleteCard(item.id);
                             navigation.goBack();
                         }
@@ -86,8 +90,21 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
             );
             return;
         }
+
+        // 1. Actualización optimista visual
         setQty(newQty);
-        updateQuantity(item.id, newQty);
+        setUpdating(true);
+
+        try {
+            // 2. Persistir en DB via Context
+            await updateQuantity(item.id, newQty);
+        } catch (e) {
+            // 3. Rollback visual si falla
+            setQty(qty);
+            Alert.alert("Error", "No se pudo actualizar la cantidad.");
+        } finally {
+            setUpdating(false);
+        }
     };
 
     const openCardmarket = () => {
@@ -236,11 +253,19 @@ export const CardDetailScreen = ({ route, navigation }: any) => {
                     <View style={styles.qtyContainer}>
                         <Text style={styles.qtyLabel}>EN POSESIÓN</Text>
                         <View style={styles.qtyControls}>
-                            <Pressable onPress={() => handleQuantity(-1)} style={styles.qtyBtn}>
+                            <Pressable
+                                onPress={() => handleQuantity(-1)}
+                                style={[styles.qtyBtn, updating && styles.qtyBtnDisabled]}
+                                disabled={updating}
+                            >
                                 <Text style={styles.qtyBtnText}>-</Text>
                             </Pressable>
                             <Text style={styles.qtyValue}>{qty}</Text>
-                            <Pressable onPress={() => handleQuantity(1)} style={styles.qtyBtn}>
+                            <Pressable
+                                onPress={() => handleQuantity(1)}
+                                style={[styles.qtyBtn, updating && styles.qtyBtnDisabled]}
+                                disabled={updating}
+                            >
                                 <Text style={styles.qtyBtnText}>+</Text>
                             </Pressable>
                         </View>
@@ -340,6 +365,7 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
     },
     qtyBtn:          { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    qtyBtnDisabled:  { opacity: 0.4 },
     qtyBtnText:      { color: THEME.cream, fontSize: 18, fontWeight: 'bold' },
     qtyValue:        { color: THEME.gold, fontSize: 18, fontWeight: 'bold', marginHorizontal: 4, minWidth: 20, textAlign: 'center' },
 });

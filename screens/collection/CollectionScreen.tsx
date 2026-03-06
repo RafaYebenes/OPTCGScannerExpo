@@ -16,11 +16,11 @@ const AVAILABLE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
 export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }) => {
   const { collection, stats, loading, refresh, deleteCard } = useCollection();
 
-  const [searchText, setSearchText]       = useState('');
-  const [activeRarity, setActiveRarity]   = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [activeRarity, setActiveRarity] = useState<string | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filterColor, setFilterColor]     = useState<string | null>(null);
-  const [filterSet, setFilterSet]         = useState<string | null>(null);
+  const [filterColor, setFilterColor] = useState<string | null>(null);
+  const [filterSet, setFilterSet] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -39,7 +39,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         const query = searchText.toUpperCase();
         const matchName = item.card.name.toUpperCase().includes(query);
         const matchCode = item.card.code.toUpperCase().includes(query);
-        const matchSet  = item.card.set_code.toUpperCase().includes(query);
+        const matchSet = item.card.set_code.toUpperCase().includes(query);
         if (!matchName && !matchCode && !matchSet) return false;
       }
 
@@ -49,19 +49,19 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
         } else {
           const r = item.card.rarity ? item.card.rarity.toUpperCase() : '?';
           let label = r;
-          if (r === 'LEADER')      label = 'L';
-          if (r === 'COMMON')      label = 'C';
-          if (r === 'UNCOMMON')    label = 'UC';
-          if (r === 'RARE')        label = 'R';
-          if (r === 'SUPER RARE')  label = 'SR';
+          if (r === 'LEADER') label = 'L';
+          if (r === 'COMMON') label = 'C';
+          if (r === 'UNCOMMON') label = 'UC';
+          if (r === 'RARE') label = 'R';
+          if (r === 'SUPER RARE') label = 'SR';
           if (r === 'SECRET RARE') label = 'SEC';
-          if (r === 'PROMO')       label = 'P';
+          if (r === 'PROMO') label = 'P';
           if (label !== activeRarity) return false;
         }
       }
 
       if (filterColor && (!item.card.color || !item.card.color.includes(filterColor))) return false;
-      if (filterSet   && item.card.set_code !== filterSet) return false;
+      if (filterSet && item.card.set_code !== filterSet) return false;
 
       return true;
     });
@@ -76,18 +76,18 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
       const key = `${item.card.code}-${item.is_foil}`;
       if (groups.has(key)) {
         const existing = groups.get(key);
-        existing.quantity += 1;
+        existing.quantity += item.quantity;  // ✅ Suma el quantity real de la DB
         existing.ids.push(item.id);
       } else {
         groups.set(key, {
           ...item,
-          code:      item.card.code,
-          name:      item.card.name,
-          image:     item.card.image_url,   // ← CardGridItem lo usa para la imagen
+          code: item.card.code,
+          name: item.card.name,
+          image: item.card.image_url,
           parsedSet: item.card.set_code,
-          isAltArt:  item.is_foil,
-          quantity:  1,
-          ids:       [item.id],
+          isAltArt: item.is_foil,
+          quantity: item.quantity,           // ✅ Usa el quantity de la DB
+          ids: [item.id],
         });
       }
     });
@@ -100,11 +100,11 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
     collection.forEach(item => {
       const r = item.card?.rarity ? item.card.rarity.toUpperCase() : '?';
       let label = r;
-      if (r === 'LEADER')      label = 'L';
-      if (r === 'COMMON')      label = 'C';
-      if (r === 'UNCOMMON')    label = 'UC';
-      if (r === 'RARE')        label = 'R';
-      if (r === 'SUPER RARE')  label = 'SR';
+      if (r === 'LEADER') label = 'L';
+      if (r === 'COMMON') label = 'C';
+      if (r === 'UNCOMMON') label = 'UC';
+      if (r === 'RARE') label = 'R';
+      if (r === 'SUPER RARE') label = 'SR';
       if (r === 'SECRET RARE') label = 'SEC';
       counts[label] = (counts[label] || 0) + 1;
     });
@@ -220,10 +220,10 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({ navigation }
 };
 
 const styles = StyleSheet.create({
-  gradient:        { flex: 1 },
-  listContent:     { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
-  columnWrapper:   { justifyContent: 'flex-start', gap: SPACING.gap, marginBottom: SPACING.gap },
+  gradient: { flex: 1 },
+  listContent: { paddingHorizontal: SPACING.gap, paddingBottom: 100 },
+  columnWrapper: { justifyContent: 'flex-start', gap: SPACING.gap, marginBottom: SPACING.gap },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
-  loadingText:     { color: PALETTE.cream, marginTop: 10 },
-  emptyText:       { color: PALETTE.cream, fontSize: 16, textAlign: 'center', paddingHorizontal: 20 },
+  loadingText: { color: PALETTE.cream, marginTop: 10 },
+  emptyText: { color: PALETTE.cream, fontSize: 16, textAlign: 'center', paddingHorizontal: 20 },
 });
