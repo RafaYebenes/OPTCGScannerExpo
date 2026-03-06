@@ -332,7 +332,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
         visible={showSuccessModal}
         cardCode={detectionState.lastSavedCode || ''}
         isAltArt={detectionState.isAltArt}
-        syncState={syncState}
+        syncState={syncState === 'saving' ? 'syncing' : syncState}
       />
     </ScreenContainer>
   );
