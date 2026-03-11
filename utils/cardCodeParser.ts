@@ -27,7 +27,7 @@ export const cardCodeParser = {
   // Grupo 1: Prefijo SP (opcional)
   // Grupo 2: Set + número de set (ej: OP05)
   // Grupo 3: Número de carta (ej: 060)
-  STANDARD_PATTERN: /(?:(SP)\s*)?((?: OP|EB|ST|PRB|0P|O0|QP|DP|CP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
+  STANDARD_PATTERN: /(?:(SP)\s*)?((?:OP|EB|ST|PRB|0P|O0|QP|DP|CP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
 
   // --- REGEX PARA PROMOS ---
   // Formato: P-001, P-023, etc.
