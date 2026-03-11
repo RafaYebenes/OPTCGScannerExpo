@@ -69,7 +69,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
   const camera = useRef<Camera>(null);
   const { hasPermission, requestPermission } = useCameraPermission();
 
-  const { detectionState, processDetectedText, showSuccessModal, syncState, notFoundCode, clearNotFound } = useCardScanner();
+  const { detectionState, processDetectedText, showSuccessModal, modalCardCode, modalIsAltArt, syncState, notFoundCode, clearNotFound } = useCardScanner();
   const { recentCards, refresh } = useCardStorage();
 
   // ── ¿Está esta pantalla visible? ──
@@ -149,7 +149,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
           const result = await TextRecognition.recognize(ocrUri);
           if (result?.blocks) {
             const allText = result.blocks.map((b: any) => b.text).join('\n');
-            
+
             // ── DEBUG: ver qué detecta el OCR tras el crop ──
             if (allText.length > 0) {
               console.log('[Scanner] OCR detectó:', allText.substring(0, 100));
@@ -330,9 +330,9 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({ navigation }) => {
       {/* MODAL DE ÉXITO */}
       <SuccessModal
         visible={showSuccessModal}
-        cardCode={detectionState.lastSavedCode || ''}
-        isAltArt={detectionState.isAltArt}
-        syncState={syncState}
+        cardCode={modalCardCode}
+        isAltArt={modalIsAltArt}
+        syncState={syncState === 'saving' ? 'syncing' : syncState}
       />
     </ScreenContainer>
   );
@@ -354,10 +354,10 @@ const LoadingView = () => (
 );
 
 const styles = StyleSheet.create({
-  centerContainer:  { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' },
-  textInfo:         { color: PALETTE.cream, fontSize: 16, marginBottom: 20 },
-  textBtn:          { color: '#000', fontWeight: 'bold' },
-  actionButton:     { backgroundColor: PALETTE.cream, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 25 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#001525' },
+  textInfo: { color: PALETTE.cream, fontSize: 16, marginBottom: 20 },
+  textBtn: { color: '#000', fontWeight: 'bold' },
+  actionButton: { backgroundColor: PALETTE.cream, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 25 },
 
   focusSquare: {
     position: 'absolute', width: 60, height: 60,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.bgDarkGlass,
     borderBottomWidth: 1, borderBottomColor: PALETTE.glassBorder,
   },
-  topRightButtons:  { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  topRightButtons: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   glassButton: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: PALETTE.bgDarkGlass,
@@ -381,16 +381,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   glassButtonPressed: { backgroundColor: PALETTE.lightBlue },
-  glassButtonText:  { color: PALETTE.cream, fontSize: 10, fontWeight: '700' },
-  glassButtonIcon:  { color: PALETTE.cream, fontSize: 12 },
+  glassButtonText: { color: PALETTE.cream, fontSize: 10, fontWeight: '700' },
+  glassButtonIcon: { color: PALETTE.cream, fontSize: 12 },
   circleButton: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: PALETTE.bgDarkGlass,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
-  aaButtonActive:   { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
-  aaTextTop:        { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
+  aaButtonActive: { backgroundColor: PALETTE.gold, borderColor: PALETTE.gold },
+  aaTextTop: { color: PALETTE.cream, fontWeight: '900', fontSize: 12 },
 
   torchSuggested: {
     borderColor: PALETTE.gold,
@@ -408,14 +408,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 5,
   },
 
-  modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  modalContent:  { width: '85%', backgroundColor: '#001525', padding: 24, borderRadius: 16, borderWidth: 1, borderColor: PALETTE.gold, elevation: 10 },
-  modalTitle:    { color: PALETTE.gold, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, letterSpacing: 2 },
-  input:         { backgroundColor: '#000', color: '#fff', fontSize: 20, textAlign: 'center', fontWeight: 'bold', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', marginBottom: 24 },
-  modalButtons:  { flexDirection: 'row', gap: 12 },
-  btnCancel:     { flex: 1, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#666', borderRadius: 12 },
-  btnConfirm:    { flex: 1, padding: 14, alignItems: 'center', backgroundColor: PALETTE.gold, borderRadius: 12 },
-  btnText:       { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '85%', backgroundColor: '#001525', padding: 24, borderRadius: 16, borderWidth: 1, borderColor: PALETTE.gold, elevation: 10 },
+  modalTitle: { color: PALETTE.gold, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, letterSpacing: 2 },
+  input: { backgroundColor: '#000', color: '#fff', fontSize: 20, textAlign: 'center', fontWeight: 'bold', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', marginBottom: 24 },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  btnCancel: { flex: 1, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#666', borderRadius: 12 },
+  btnConfirm: { flex: 1, padding: 14, alignItems: 'center', backgroundColor: PALETTE.gold, borderRadius: 12 },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 
   bottomListContainer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

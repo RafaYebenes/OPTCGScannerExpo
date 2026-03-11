@@ -1,37 +1,85 @@
-export const cardCodeParser = {
-  // Regex Explicación:
-  // 1. Prefijos: (OP|EB|ST|PRB) y sus variantes con error OCR (0P, QP, etc)
-  // 2. Set: 2 dígitos (o letras O)
-  // 3. Separador: Guión opcional (o guión largo)
-  // 4. Número: 3 dígitos (o letras O)
-  PATTERN: /((?:OP|EB|ST|PRB|0P|O0|QP|DP|CP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
+// ============================================
+// CARD CODE PARSER — OPSCANNER (ACTUALIZADO)
+// ============================================
+// Extrae el código de carta del texto OCR.
+//
+// CAMBIOS vs versión anterior:
+// 1. Detecta prefijo "SP" antes del código → lo reporta
+// 2. Soporte para cartas Promo (P-XXX)
+// 3. Devuelve metadata extra: hasSpPrefix, isPromo
+// ============================================
 
-  parse(text: string): { set: string; number: string; fullCode: string } | null {
+export interface ParsedCode {
+  set: string;        // 'OP05', 'EB03', 'ST17', 'P'
+  number: string;     // '060', '024', '005'
+  fullCode: string;   // 'OP05-060'
+  hasSpPrefix: boolean;  // NUEVO: true si "SP" aparecía delante del código
+  isPromo: boolean;      // NUEVO: true si es formato P-XXX
+}
+
+export const cardCodeParser = {
+  // --- REGEX PRINCIPAL ---
+  // Soporta:
+  // - OP/EB/ST/PRB + 2 dígitos + guión + 3 dígitos (estándar)
+  // - Prefijo SP opcional antes del código
+  // - Errores OCR comunes: 0↔O, Q→O, D→O, C→O
+  //
+  // Grupo 1: Prefijo SP (opcional)
+  // Grupo 2: Set + número de set (ej: OP05)
+  // Grupo 3: Número de carta (ej: 060)
+  STANDARD_PATTERN: /(?:(SP)\s*)?((?:OP|EB|ST|PRB|0P|O0|QP|DP|CP)[0-9O]{2})\s?[-—]?\s?([0-9O]{3})/i,
+
+  // --- REGEX PARA PROMOS ---
+  // Formato: P-001, P-023, etc.
+  PROMO_PATTERN: /\bP\s?[-—]\s?([0-9O]{3})\b/i,
+
+  /**
+   * Parsea el texto OCR y extrae el código de carta.
+   * Intenta primero el formato estándar, luego el de promo.
+   *
+   * @param text - Texto crudo del OCR
+   * @returns ParsedCode o null si no se detectó código
+   */
+  parse(text: string): ParsedCode | null {
     if (!text) return null;
 
+    // Intentar formato estándar primero (más común)
+    const standardResult = this._parseStandard(text);
+    if (standardResult) return standardResult;
+
+    // Intentar formato promo
+    const promoResult = this._parsePromo(text);
+    if (promoResult) return promoResult;
+
+    return null;
+  },
+
+  // --- PARSER ESTÁNDAR (OP/EB/ST/PRB) ---
+  _parseStandard(text: string): ParsedCode | null {
     const lines = text.toUpperCase().split('\n');
 
     for (const line of lines) {
-      const match = line.match(this.PATTERN);
+      const match = line.match(this.STANDARD_PATTERN);
 
       if (match) {
-        let rawPrefixPart = match[1];
-        let rawNumber = match[2];
+        const spPrefix = match[1]; // 'SP' o undefined
+        let rawPrefixPart = match[2];
+        let rawNumber = match[3];
 
         // --- CORRECCIÓN DE ERRORES OCR ---
-        const prefixMatch = rawPrefixPart.match(/([A-Z0]+?)([0-9O]{2})$/);
+        const prefixMatch = rawPrefixPart.trim().match(/([A-Z0]+?)([0-9O]{2})$/);
 
         if (!prefixMatch) continue;
 
         let prefixLetters = prefixMatch[1];
         let setNumbers = prefixMatch[2];
 
-        // Corregimos el prefijo (0 -> O, Q -> O)
+        // Corregimos el prefijo (0 -> O, Q -> O, D -> O, C -> O)
         prefixLetters = prefixLetters
           .replace('0', 'O')
           .replace('Q', 'O')
-          .replace('D', 'O') // Si lee DP -> OP
-          .replace('C', 'O'); // Si lee CP -> OP
+          .replace('D', 'O')
+          .replace('C', 'O');
 
         // Corregimos números (O -> 0)
         const fixedSetNum = setNumbers.replace(/O/g, '0');
@@ -43,7 +91,9 @@ export const cardCodeParser = {
         return {
           set: finalSetCode,
           number: fixedCardNum,
-          fullCode: fullCode
+          fullCode: fullCode,
+          hasSpPrefix: !!spPrefix,
+          isPromo: false,
         };
       }
     }
@@ -51,7 +101,39 @@ export const cardCodeParser = {
     return null;
   },
 
+  // --- PARSER DE PROMOS (P-XXX) ---
+  _parsePromo(text: string): ParsedCode | null {
+    const lines = text.toUpperCase().split('\n');
+
+    for (const line of lines) {
+      const match = line.match(this.PROMO_PATTERN);
+
+      if (match) {
+        const rawNumber = match[1];
+        const fixedNumber = rawNumber.replace(/O/g, '0');
+
+        return {
+          set: 'P',
+          number: fixedNumber,
+          fullCode: `P-${fixedNumber}`,
+          hasSpPrefix: false,
+          isPromo: true,
+        };
+      }
+    }
+
+    return null;
+  },
+
+  // --- VALIDACIÓN ---
   validate(code: { set: string; number: string }): boolean {
+    // Promos: set = 'P', número válido
+    if (code.set === 'P') {
+      const cardNum = parseInt(code.number, 10);
+      return !isNaN(cardNum) && cardNum > 0;
+    }
+
+    // Estándar: set tiene parte numérica, número válido
     const setPart = code.set.match(/\d+$/);
     if (!setPart) return false;
 
@@ -78,9 +160,15 @@ export const cardCodeParser = {
       'OP08': 'Two Legends',
       'OP09': 'The Four Emperors',
       'OP10': 'Royal Blood',
+      'OP11': 'A Fist of Divine Speed',
+      'OP12': 'Unknown',
+      'OP13': 'Carrying on His Will',
 
       // --- EXTRA BOOSTERS (EB) ---
       'EB01': 'Memorial Collection',
+      'EB02': 'Unknown EB02',
+      'EB03': 'Heroines Edition',
+      'EB04': 'Unknown EB04',
 
       // --- PREMIUM BOOSTERS (PRB) ---
       'PRB01': 'The Best',
@@ -111,21 +199,14 @@ export const cardCodeParser = {
       'P': 'Promotional Card',
     };
 
-    // 1. Buscamos el nombre exacto
-    if (specificSets[code]) {
-      return specificSets[code];
-    }
+    // 1. Buscar nombre específico
+    if (specificSets[code]) return specificSets[code];
 
-    // 2. Si no existe, usamos fallback genérico
-    const prefixes: Record<string, string> = {
-      'OP': 'Booster Pack',
-      'ST': 'Starter Deck',
-      'EB': 'Extra Booster',
-      'PRB': 'Premium Booster'
-    };
+    // 2. Intentar prefijo genérico
+    if (code.startsWith('OP')) return `Booster ${code}`;
+    if (code.startsWith('ST')) return `Starter Deck ${code}`;
+    if (code.startsWith('EB')) return `Extra Booster ${code}`;
 
-    const prefix = code.replace(/[0-9]/g, '');
-
-    return prefixes[prefix] ? `${prefixes[prefix]} ${code}` : code;
-  }
+    return 'Desconocido';
+  },
 };

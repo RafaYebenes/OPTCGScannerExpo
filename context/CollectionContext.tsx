@@ -1,6 +1,16 @@
+// ============================================
+// COLLECTION CONTEXT — OPSCANNER (ACTUALIZADO)
+// ============================================
+// CAMBIO ÚNICO vs git actual:
+// - addCard() ahora acepta un tercer parámetro: detectedVariant
+// - Se pasa a supabaseService.addCardToCollection
+// - Todo lo demás se mantiene IDÉNTICO
+// ============================================
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, Image } from 'react-native';
 import { supabaseService } from '../services/supabaseService';
+import { DetectedVariant } from '../types/card.types';
 import { useAuth } from './AuthContext';
 
 export interface CollectionItem {
@@ -29,17 +39,22 @@ type CollectionContextType = {
   deleteCard: (id: string) => Promise<void>;
   updateQuantity: (id: string, newQuantity: number) => Promise<void>;
   stats: { totalCards: number; uniqueCards: number; altArts: number };
-  addCard: (code: string, isFoil?: boolean) => Promise<{ success: boolean; message?: string }>;
+  // CAMBIO: tercer parámetro opcional
+  addCard: (
+    code: string,
+    isFoil?: boolean,
+    detectedVariant?: DetectedVariant
+  ) => Promise<{ success: boolean; message?: string }>;
 };
 
 const CollectionContext = createContext<CollectionContextType>({
   collection: [],
   loading: false,
-  refresh: async () => { },
-  deleteCard: async () => { },
-  updateQuantity: async () => { },
+  refresh: async () => {},
+  deleteCard: async () => {},
+  updateQuantity: async () => {},
   stats: { totalCards: 0, uniqueCards: 0, altArts: 0 },
-  addCard: async () => ({ success: false, message: 'Función no implementada' })
+  addCard: async () => ({ success: false, message: 'Función no implementada' }),
 });
 
 export const CollectionProvider = ({ children }: { children: React.ReactNode }) => {
@@ -52,7 +67,7 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
     setLoading(true);
     try {
       const data = await supabaseService.getUserCollection() as unknown as CollectionItem[];
-      
+
       const imagePromises = data.map(item => {
         if (item.card?.image_url) {
           return Image.prefetch(item.card.image_url).catch(e => console.warn(e));
@@ -74,15 +89,17 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
     if (success) {
       setCollection(prev => prev.filter(item => item.id !== id));
     } else {
-      Alert.alert("Error", "No se pudo eliminar la carta.");
+      Alert.alert('Error', 'No se pudo eliminar la carta.');
     }
   };
 
   const updateQuantity = async (id: string, newQuantity: number) => {
-    setCollection(prev => prev.map(item => {
-      if (item.id === id) return { ...item, quantity: newQuantity };
-      return item;
-    }));
+    setCollection(prev =>
+      prev.map(item => {
+        if (item.id === id) return { ...item, quantity: newQuantity };
+        return item;
+      })
+    );
 
     if (newQuantity <= 0) {
       setCollection(prev => prev.filter(item => item.id !== id));
@@ -91,20 +108,32 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
     await supabaseService.updateCardQuantity(id, newQuantity);
   };
 
-  const addCard = async (code: string, isFoil: boolean = false) => {
+  // =============================================
+  // CAMBIO: addCard acepta detectedVariant
+  // =============================================
+  const addCard = async (
+    code: string,
+    isFoil: boolean = false,
+    detectedVariant: DetectedVariant = null
+  ) => {
     if (!user) return { success: false, message: 'Usuario no autenticado' };
 
     try {
       setLoading(true);
-      const result = await supabaseService.addCardToCollection(user.id, code, isFoil);
+      // CAMBIO: pasar detectedVariant e isFoil (como isAltMode)
+      const result = await supabaseService.addCardToCollection(
+        user.id,
+        code,
+        detectedVariant,
+        isFoil
+      );
 
       if (result.success) {
-        await loadData(); // Recargamos usando loadData
+        await loadData();
         return { success: true, message: 'Carta añadida' };
       } else {
         return { success: false, message: result.error || 'Error al añadir' };
       }
-
     } catch (e) {
       return { success: false, message: 'Error de conexión' };
     } finally {
@@ -135,7 +164,7 @@ export const CollectionProvider = ({ children }: { children: React.ReactNode }) 
         deleteCard,
         updateQuantity,
         stats,
-        addCard
+        addCard,
       }}
     >
       {children}

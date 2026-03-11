@@ -34,7 +34,7 @@ const DEBUG_CROP = false;
 // Empezar con 'full_card' para validar que el mapeo funciona, (funciona mejor despues de pruebas, dejamos este)
 // luego cambiar a 'code_corner' cuando esté confirmado.
 type CropMode = 'code_corner' | 'full_card';
-const CROP_MODE: CropMode = 'full_card';  // ← CAMBIAR a 'code_corner' cuando funcione
+const CROP_MODE: CropMode = 'code_corner';  // ← CAMBIAR a 'code_corner' cuando funcione
 
 function logDebug(label: string, data: any) {
   if (DEBUG_CROP) {
@@ -47,7 +47,6 @@ function logDebug(label: string, data: any) {
  */
 function getCropRegionInScreen(): { x: number; y: number; width: number; height: number } {
   if (CROP_MODE === 'full_card') {
-    // Toda el área del overlay
     const region = {
       x: OVERLAY_X,
       y: OVERLAY_Y,
@@ -62,12 +61,14 @@ function getCropRegionInScreen(): { x: number; y: number; width: number; height:
     return region;
   }
 
-  // code_corner: esquina inferior izquierda
-  const regionWidth = OVERLAY_WIDTH * 0.55;
-  const regionHeight = OVERLAY_HEIGHT * 0.30;
+  // code_corner: esquina inferior DERECHA
+  // Capturamos el 60% derecho y el 25% inferior del overlay.
+  // Esto cubre: código, rareza, icono de set, y posible prefijo SP.
+  const regionWidth = OVERLAY_WIDTH * 0.60;
+  const regionHeight = OVERLAY_HEIGHT * 0.25;
   const region = {
-    x: OVERLAY_X,
-    y: OVERLAY_Y + OVERLAY_HEIGHT - regionHeight,
+    x: OVERLAY_X + OVERLAY_WIDTH - regionWidth,  // Empieza desde la DERECHA
+    y: OVERLAY_Y + OVERLAY_HEIGHT - regionHeight, // Parte inferior
     width: regionWidth,
     height: regionHeight,
   };

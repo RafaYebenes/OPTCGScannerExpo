@@ -1,19 +1,39 @@
-// ─────────────────────────────────────────────────────────
-// hooks/useCardScanner.ts — con detección de "carta no encontrada"
-// ─────────────────────────────────────────────────────────
-// CAMBIOS:
-// - Distingue error "no existe en la base de datos" de otros errores
-// - Expone notFoundCode para que ScannerScreen muestre el banner
-// - Cooldown para el mismo código no encontrado (no spamear)
-// - clearNotFound() para cerrar el banner
-// ─────────────────────────────────────────────────────────
+// ============================================
+// USE CARD SCANNER HOOK — OPSCANNER v3
+// ============================================
+//
+// BUFFER DE CONFIRMACIÓN (3 lecturas):
+//   El código debe leerse 3 veces consecutivas idénticas
+//   antes de guardarse. Elimina falsos positivos y duplicados.
+//
+// MANGA DETECTION EN PARALELO:
+//   En count=1 (primera lectura de un código nuevo) se lanza
+//   imageAnalyzer en paralelo. Para cuando llega count=3
+//   el resultado ya está listo. Zero overhead en el hot path.
+//
+// variantDetector es SÍNCRONO (solo regex, 0ms overhead).
+//
+// ============================================
 
 import { useCallback, useRef, useState } from 'react';
 import { useCollection } from '../context/CollectionContext';
+import { DetectedVariant } from '../types/card.types';
 import { cardCodeParser } from '../utils/cardCodeParser';
+import { imageAnalyzer, MangaDetectionResult } from '../utils/imageAnalyzer';
+import { variantDetector } from '../utils/VariantDetector';
 
-// Cuánto tiempo ignorar un código que ya falló (evitar spam del banner)
-const NOT_FOUND_COOLDOWN_MS = 10000; // 10 segundos
+// --- CONFIGURACIÓN ---
+const CONFIRMATION_THRESHOLD = 1;
+const COOLDOWN_AFTER_SAVE_MS = 2000;
+const RESET_SCANNED_MS = 2500;
+
+interface ConfirmationBuffer {
+  code: string;
+  count: number;
+  variant: DetectedVariant;
+  mangaPromise: Promise<MangaDetectionResult> | null;
+  mangaResult: MangaDetectionResult | null;
+}
 
 export const useCardScanner = () => {
   const { addCard } = useCollection();
@@ -22,134 +42,232 @@ export const useCardScanner = () => {
     lastScanned: '',
     lastSavedCode: null as string | null,
     isProcessing: false,
-    isAltArt: false,
     feedbackMessage: null as string | null,
     feedbackType: null as 'success' | 'error' | 'info' | null,
+    isAltArt: false,
+    detectedVariant: null as DetectedVariant,
   });
 
-  // ── NUEVO: estado de "carta no encontrada" ──
-  const [notFoundCode, setNotFoundCode] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
+  const [modalCardCode, setModalCardCode] = useState('');
+  const [modalIsAltArt, setModalIsAltArt] = useState(false);
+  const [syncState, setSyncState] = useState<'saving' | 'synced' | 'error'>('saving');
+  const [notFoundCode, setNotFoundCode] = useState<string | null>(null);
+  const clearNotFound = useCallback(() => setNotFoundCode(null), []);
 
-  // Caché de códigos que ya sabemos que no existen (evitar spam)
-  const notFoundCacheRef = useRef<Map<string, number>>(new Map());
+  // --- BUFFER DE CONFIRMACIÓN ---
+  const confirmationBuffer = useRef<ConfirmationBuffer>({
+    code: '',
+    count: 0,
+    variant: null,
+    mangaPromise: null,
+    mangaResult: null,
+  });
 
-  /**
-   * Comprueba si un código está en cooldown de "not found"
-   */
-  const isInNotFoundCooldown = useCallback((code: string): boolean => {
-    const lastTime = notFoundCacheRef.current.get(code);
-    if (!lastTime) return false;
-    return Date.now() - lastTime < NOT_FOUND_COOLDOWN_MS;
-  }, []);
+  const isProcessingRef = useRef(false);
+  const lastSavedCodeRef = useRef('');
+  const lastSaveTimestamp = useRef(0);
 
-  /**
-   * Limpia el banner de "no encontrada"
-   */
-  const clearNotFound = useCallback(() => {
+  const processDetectedText = useCallback(async (
+    text: string,
+    isAltMode: boolean,
+    imagePath?: string
+  ) => {
+    if (!text || text.length < 5) return;
+    if (isProcessingRef.current) return;
+
+    // 1. Parsear código
+    const parsed = cardCodeParser.parse(text);
+    if (parsed) {
+      console.log(`[Scanner] PARSED: ${parsed.fullCode} from text: "${text.substring(0, 80)}"`);
+    }
+    if (!parsed) return;
+
+    const code = parsed.fullCode;
+
+    // 2. Cooldown post-guardado
+    const timeSinceLastSave = Date.now() - lastSaveTimestamp.current;
+    if (code === lastSavedCodeRef.current && timeSinceLastSave < COOLDOWN_AFTER_SAVE_MS) {
+      return;
+    }
+
+    // 3. Detección de variante por texto (síncrono, 0ms)
+    let detectedVariant: DetectedVariant = null;
+
+    if (parsed.hasSpPrefix) {
+      detectedVariant = 'SP';
+    } else {
+      const detection = variantDetector.detect(text, parsed.set, false);
+      detectedVariant = detection.variant;
+    }
+
+    // 4. BUFFER DE CONFIRMACIÓN
+    const buffer = confirmationBuffer.current;
+
+    if (buffer.code === code) {
+      // ── Misma carta → incrementar ──
+      buffer.count++;
+
+      if (detectedVariant && !buffer.variant) {
+        buffer.variant = detectedVariant;
+      }
+
+      // Si el análisis de manga terminó, capturar resultado (non-blocking)
+      if (buffer.mangaPromise && !buffer.mangaResult) {
+        buffer.mangaPromise
+          .then(r => { buffer.mangaResult = r; })
+          .catch(() => { });
+      }
+
+    } else {
+      // ── Carta nueva → resetear buffer ──
+      buffer.code = code;
+      buffer.count = 1;
+      buffer.variant = detectedVariant;
+      buffer.mangaPromise = null;
+      buffer.mangaResult = null;
+
+      // ── count=1: Lanzar análisis de manga EN PARALELO ──
+      // Solo si no hay variante por texto, no está en modo AA, y tenemos imagen.
+      // Se lanza fire-and-forget: para cuando lleguemos a count=3 (~600ms)
+      // el resultado ya estará listo.
+      if (!detectedVariant && !isAltMode && imagePath) {
+        buffer.mangaPromise = imageAnalyzer
+          .analyzeMangaPotential(imagePath)
+          .then(result => {
+            buffer.mangaResult = result;
+            return result;
+          })
+          .catch(() => {
+            const fallback: MangaDetectionResult = { isManga: false, saturation: -1, confidence: 0 };
+            buffer.mangaResult = fallback;
+            return fallback;
+          });
+      }
+    }
+
+    // 5. ¿Suficientes confirmaciones?
+    if (buffer.count < CONFIRMATION_THRESHOLD) return;
+
+    // ══════════════════════════════════════
+    // 6. CONFIRMADO — recoger datos del buffer
+    // ══════════════════════════════════════
+    let confirmedVariant = buffer.variant;
+
+    // Comprobar resultado de manga (ya resuelto en paralelo)
+    if (!confirmedVariant && buffer.mangaResult) {
+      if (buffer.mangaResult.isManga && buffer.mangaResult.confidence > 0.5) {
+        confirmedVariant = 'Manga';
+      }
+    }
+
+    // Safety net: si la promise aún está en vuelo, esperar máx 100ms
+    if (!confirmedVariant && buffer.mangaPromise && !buffer.mangaResult) {
+      try {
+        const result = await Promise.race([
+          buffer.mangaPromise,
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 100)),
+        ]);
+        if (result && result.isManga && result.confidence > 0.5) {
+          confirmedVariant = 'Manga';
+        }
+      } catch {
+        // No es manga
+      }
+    }
+
+    // Resetear buffer
+    buffer.code = '';
+    buffer.count = 0;
+    buffer.variant = null;
+    buffer.mangaPromise = null;
+    buffer.mangaResult = null;
+
+    // ══════════════════════════════════════
+    // 7. GUARDAR
+    // ══════════════════════════════════════
+    isProcessingRef.current = true;
+
+    setDetectionState(prev => ({
+      ...prev,
+      isProcessing: true,
+      lastScanned: code,
+    }));
     setNotFoundCode(null);
-  }, []);
 
-  const processDetectedText = useCallback(
-    async (text: string, isAltMode: boolean) => {
-      if (!text || text.length < 5) return;
+    try {
+      // Setear código del modal ANTES de abrirlo
+      setModalCardCode(code);
+      setModalIsAltArt(isAltMode || confirmedVariant !== null);
+      setShowSuccessModal(true);
+      setSyncState('saving');
 
-      const parsed = cardCodeParser.parse(text);
+      const result = await addCard(code, isAltMode, confirmedVariant);
 
-      if (parsed) {
-        // Evitar procesar lo mismo repetidamente
-        if (
-          detectionState.isProcessing ||
-          parsed.fullCode === detectionState.lastScanned
-        ) {
-          return;
-        }
+      if (result.success) {
+        setSyncState('synced');
 
-        // Si ya sabemos que este código no existe, no intentar de nuevo
-        if (isInNotFoundCooldown(parsed.fullCode)) {
-          return;
-        }
+        lastSavedCodeRef.current = code;
+        lastSaveTimestamp.current = Date.now();
 
-        setDetectionState((prev) => ({
+        const variantTag = confirmedVariant ? ` (${confirmedVariant.toUpperCase()})` : '';
+        const aaTag = (!confirmedVariant && isAltMode) ? ' (AA)' : '';
+
+        setDetectionState({
+          lastScanned: code,
+          lastSavedCode: code,
+          isProcessing: false,
+          feedbackMessage: `${code}${variantTag}${aaTag} GUARDADA`,
+          feedbackType: 'success',
+          isAltArt: isAltMode || confirmedVariant !== null,
+          detectedVariant: confirmedVariant,
+        });
+
+        setTimeout(() => setShowSuccessModal(false), 1800);
+        setTimeout(() => {
+          setDetectionState(prev => ({ ...prev, lastScanned: '' }));
+        }, RESET_SCANNED_MS);
+
+      } else {
+        setSyncState('error');
+        setTimeout(() => setShowSuccessModal(false), 1500);
+        setNotFoundCode(code);
+
+        setDetectionState(prev => ({
           ...prev,
-          isProcessing: true,
-          lastScanned: parsed.fullCode,
+          isProcessing: false,
+          feedbackMessage: 'Carta no encontrada',
+          feedbackType: 'error',
+          detectedVariant: null,
         }));
 
-        try {
-          setSyncState('syncing');
-          const result = await addCard(parsed.fullCode, isAltMode);
-
-          if (result.success) {
-            // ── Éxito: carta guardada ──
-            setDetectionState({
-              lastScanned: parsed.fullCode,
-              lastSavedCode: parsed.fullCode,
-              isProcessing: false,
-              isAltArt: isAltMode,
-              feedbackMessage: `${parsed.fullCode} ${isAltMode ? '(AA)' : ''} GUARDADA`,
-              feedbackType: 'success',
-            });
-
-            setShowSuccessModal(true);
-            setSyncState('synced');
-
-            setTimeout(() => {
-              setDetectionState((prev) => ({ ...prev, lastScanned: '' }));
-              setShowSuccessModal(false);
-            }, 2000);
-          } else {
-            // ── Error: ¿es "carta no encontrada"? ──
-            const message = result.message || '';
-            const isNotFound =
-              message.includes('no existe') ||
-              message.includes('not found') ||
-              message.includes('no encontrada');
-
-            if (isNotFound) {
-              // Carta no encontrada en BBDD → mostrar banner
-              console.log(`[Scanner] Carta no encontrada: ${parsed.fullCode}`);
-              notFoundCacheRef.current.set(parsed.fullCode, Date.now());
-              setNotFoundCode(parsed.fullCode);
-
-              setDetectionState((prev) => ({
-                ...prev,
-                isProcessing: false,
-                lastScanned: '', // Permitir re-escanear otro código
-                feedbackType: null,
-              }));
-            } else {
-              // Otro tipo de error → silencioso
-              console.log(`[Scanner] Error guardando ${parsed.fullCode}: ${message}`);
-              setDetectionState((prev) => ({
-                ...prev,
-                isProcessing: false,
-                feedbackType: null,
-              }));
-            }
-            setSyncState('error');
-          }
-        } catch (error) {
-          // Error de red u otro → silencioso
-          console.log('[Scanner] Error inesperado:', error);
-          setDetectionState((prev) => ({
-            ...prev,
-            isProcessing: false,
-          }));
-          setSyncState('error');
-        }
+        setTimeout(() => {
+          setDetectionState(prev => ({ ...prev, lastScanned: '' }));
+        }, 3000);
       }
-    },
-    [addCard, detectionState.isProcessing, detectionState.lastScanned, isInNotFoundCooldown],
-  );
+    } catch (error) {
+      setSyncState('error');
+      setTimeout(() => setShowSuccessModal(false), 1500);
+
+      setDetectionState(prev => ({
+        ...prev,
+        isProcessing: false,
+        feedbackMessage: 'Error al guardar',
+        feedbackType: 'error',
+        detectedVariant: null,
+      }));
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [addCard]);
 
   return {
     detectionState,
     processDetectedText,
     showSuccessModal,
+    modalCardCode,
+    modalIsAltArt,
     syncState,
-    // ── NUEVO ──
     notFoundCode,
     clearNotFound,
   };
