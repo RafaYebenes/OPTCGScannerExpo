@@ -226,18 +226,41 @@ export const supabaseService = {
       const isFoil = detectedVariant !== null || isAltMode;
 
       // 3. INSERTAR EN LA COLECCIÓN
-      const { data, error } = await supabase
+      // ✅ DESPUÉS — busca primero, incrementa si ya existe
+      const { data: existing } = await supabase
         .from('user_collection')
-        .insert({
-          user_id: userId,
-          card_id: result.cardId,
-          quantity: 1,
-          is_foil: isFoil,
-        })
-        .select()
-        .single();
+        .select('id, quantity')
+        .eq('user_id', userId)
+        .eq('card_id', result.cardId)
+        .eq('is_foil', isFoil)
+        .maybeSingle();
 
-      if (error) throw error;
+      let data;
+      if (existing) {
+        // Ya existe → incrementar quantity
+        const { data: updated, error } = await supabase
+          .from('user_collection')
+          .update({ quantity: existing.quantity + 1 })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        data = updated;
+      } else {
+        // No existe → crear fila nueva
+        const { data: inserted, error } = await supabase
+          .from('user_collection')
+          .insert({
+            user_id: userId,
+            card_id: result.cardId,
+            quantity: 1,
+            is_foil: isFoil,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        data = inserted;
+      }
 
       console.log(
         `✅ Carta guardada: ${cardCode} → variant=${result.variant}, rarity=${result.rarity}`
